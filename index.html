@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LINE BALANCING APP</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#17202a}
+header{background:#17202a;color:#fff;padding:16px;text-align:center;font-size:22px;font-weight:700}
+.container{max-width:1100px;margin:auto;padding:12px}
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px #0001}
+h2{font-size:18px;margin:0 0 12px}.row{display:flex;gap:10px;flex-wrap:wrap}
+input,select,button{padding:10px;border:1px solid #ccd2d8;border-radius:7px;font-size:14px}
+input,select{flex:1;min-width:120px}button{background:#17202a;color:#fff;cursor:pointer;font-weight:600}
+button.secondary{background:#68737d}.danger{background:#b42318}.green{background:#18794e}
+table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:13px}
+.tablewrap{overflow:auto}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:#fff;padding:14px;border-radius:10px;text-align:center;border:1px solid #e4e7eb}.stat b{display:block;font-size:24px;margin-top:5px}
+.bar{height:22px;background:#e9ecef;border-radius:12px;overflow:hidden;margin:6px 0 12px}.fill{height:100%;background:#4b5563;text-align:right;color:#fff;padding:3px 7px;font-size:12px}
+.linebox{border:1px solid #d8dde2;border-radius:10px;padding:12px;margin:10px 0}
+canvas{width:100%;height:260px;border:1px solid #eee;border-radius:8px}
+.small{font-size:12px;color:#667085}.tag{display:inline-block;padding:4px 8px;border-radius:15px;background:#eef2f6;margin:2px}
+@media(max-width:650px){.stats{grid-template-columns:repeat(2,1fr)}header{font-size:18px}}
+.login-note{margin-top:10px;font-size:12px;color:#667085}
+.navbar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.navbtn{background:#334155}.navbtn.active{background:#0ea5e9}.app-screen{display:none}.app-screen.active{display:block}.addbox{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin:8px 0}.addbox h3{margin:0 0 8px;font-size:14px}
+
+/* PROFESSIONAL V2 */
+.hero{background:linear-gradient(135deg,#17202a,#0ea5e9);color:#fff;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 6px 18px #0002}.hero h1{margin:0 0 5px;font-size:24px}.hero p{margin:0;opacity:.9}.quickgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.quick{border:0;border-radius:12px;padding:13px;color:#fff;text-align:center;cursor:pointer;font-weight:700}.quick span{display:block;font-size:22px;margin-bottom:4px}.q1{background:#2563eb}.q2{background:#16a34a}.q3{background:#f59e0b}.q4{background:#dc2626}.q5{background:#7c3aed}.filterbar{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px;margin-bottom:10px}.statuspill{display:inline-block;padding:4px 9px;border-radius:20px;font-size:11px;font-weight:700}.run{background:#dcfce7;color:#166534}.hold{background:#fef3c7;color:#92400e}.closed{background:#fee2e2;color:#991b1b}.risk{background:#fee2e2;color:#b91c1c}.good{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:#92400e}.miniChart{width:100%;height:240px;border:1px solid #e5e7eb;border-radius:10px;margin-top:10px}.production-form{background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:12px}.two{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.progress{height:16px;background:#e5e7eb;border-radius:10px;overflow:hidden}.progress>div{height:100%;background:#16a34a}.section-title{display:flex;justify-content:space-between;align-items:center;gap:8px}.muted{color:#667085;font-size:12px}@media(max-width:800px){.quickgrid{grid-template-columns:repeat(2,1fr)}.three,.two{grid-template-columns:1fr}} 
+
+/* SUPER PRO UI */
+body{background:linear-gradient(180deg,#eef6ff 0%,#f8fafc 45%,#eef2ff 100%)}
+header{background:linear-gradient(90deg,#0f172a,#1d4ed8,#0891b2);box-shadow:0 4px 18px #0f172a33;position:sticky;top:0;z-index:50}
+.container{max-width:1250px}
+.card{border:1px solid #dbeafe;box-shadow:0 8px 24px #0f172a12}
+.navbar{position:sticky;top:64px;z-index:40;background:#ffffffdd;backdrop-filter:blur(8px);padding:8px;border-radius:14px;box-shadow:0 5px 18px #0f172a12}
+.navbtn{border:0;transition:.2s}.navbtn:hover{transform:translateY(-1px)}
+.super-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:10px 0}.super-kpi{padding:14px;border-radius:14px;color:#fff;box-shadow:0 7px 18px #0002;min-height:88px}.super-kpi small{display:block;opacity:.9}.super-kpi strong{display:block;font-size:28px;margin-top:5px}.kblue{background:linear-gradient(135deg,#2563eb,#1d4ed8)}.kgreen{background:linear-gradient(135deg,#16a34a,#15803d)}.korange{background:linear-gradient(135deg,#f59e0b,#d97706)}.kred{background:linear-gradient(135deg,#ef4444,#b91c1c)}.kpurple{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}.kcyan{background:linear-gradient(135deg,#06b6d4,#0e7490)}
+.balance-board{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.balance-line{border-radius:14px;padding:14px;background:linear-gradient(135deg,#fff,#f8fbff);border:1px solid #bfdbfe;box-shadow:0 5px 15px #1e3a8a12}.balance-line h3{margin:0 0 7px;color:#1e3a8a}.meter{height:12px;background:#e5e7eb;border-radius:8px;overflow:hidden;margin:8px 0}.meter i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#06b6d4);border-radius:8px}.chip{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700;margin:2px}.chip-red{background:#fee2e2;color:#991b1b}.chip-green{background:#dcfce7;color:#166534}.chip-blue{background:#dbeafe;color:#1e40af}.chip-orange{background:#fef3c7;color:#92400e}
+.actionbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:linear-gradient(90deg,#eff6ff,#ecfeff);border:1px solid #bae6fd;border-radius:14px;padding:12px;margin-bottom:12px}.actionbar button{border:0}.primary{background:linear-gradient(135deg,#2563eb,#0891b2)!important}.ghost{background:#fff!important;color:#1e3a8a!important;border:1px solid #93c5fd!important}
+@media(max-width:950px){.super-kpis{grid-template-columns:repeat(3,1fr)}.balance-board{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.super-kpis{grid-template-columns:repeat(2,1fr)}.balance-board{grid-template-columns:1fr}.navbar{top:58px}}
+
+/* BOTTLENECK DASHBOARD */
+.bottle-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.bottle-kpi{padding:14px;border-radius:14px;color:#fff;box-shadow:0 6px 16px #0002}.bottle-kpi small{display:block;font-weight:700}.bottle-kpi strong{display:block;font-size:30px;margin:4px 0}.bottle-kpi span{font-size:11px;opacity:.9}.bk-red{background:linear-gradient(135deg,#ef4444,#b91c1c)}.bk-orange{background:linear-gradient(135deg,#f59e0b,#d97706)}.bk-green{background:linear-gradient(135deg,#22c55e,#15803d)}.bk-blue{background:linear-gradient(135deg,#2563eb,#0891b2)}
+.bottle-topgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0 18px}.bottle-highlight{border:1px solid #dbeafe;background:linear-gradient(135deg,#fff,#f8fbff);border-radius:14px;padding:14px;text-align:center;min-height:105px}.bottle-highlight span{display:block;font-size:12px;color:#64748b;font-weight:700}.bottle-highlight b{display:block;font-size:24px;margin:7px 0;color:#17202a}.bottle-highlight small{color:#64748b}.bottle-line-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}.bottle-line-card{border:1px solid #dbeafe;border-radius:12px;padding:12px;background:#fff}.bottle-line-head{display:flex;justify-content:space-between}.bottle-op{font-size:17px;font-weight:700;margin:9px 0;color:#1e3a8a}.bottle-mini{height:9px;background:#e5e7eb;border-radius:10px;overflow:hidden;margin:8px 0}.bottle-mini i{display:block;height:100%;background:linear-gradient(90deg,#ef4444,#f59e0b);border-radius:10px}.bottle-table th{background:#eff6ff}.bottle-table tr:nth-child(even){background:#f8fafc}.bottle-ranking{border:1px solid #e2e8f0;border-radius:12px;padding:12px;background:#fff}.rank-row{display:grid;grid-template-columns:240px 1fr 55px;gap:10px;align-items:center;margin:10px 0}.rank-label span{display:block;font-size:11px;color:#64748b;margin-top:2px}.rank-track{height:18px;background:#e5e7eb;border-radius:10px;overflow:hidden}.rank-track i{display:block;height:100%;border-radius:10px}.rank-track i.critical{background:#ef4444}.rank-track i.warning{background:#f59e0b}.rank-track i.normal{background:#22c55e}.bottle-action{margin-top:14px;padding:13px;border-radius:12px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.empty-state{padding:18px;text-align:center;color:#64748b;background:#f8fafc;border-radius:10px}
+@media(max-width:850px){.bottle-kpis{grid-template-columns:repeat(2,1fr)}.bottle-topgrid{grid-template-columns:repeat(2,1fr)}.bottle-line-grid{grid-template-columns:repeat(2,1fr)}.rank-row{grid-template-columns:170px 1fr 45px}}
+@media(max-width:600px){.bottle-kpis,.bottle-topgrid,.bottle-line-grid{grid-template-columns:1fr 1fr}.bottle-highlight b{font-size:20px}.rank-row{grid-template-columns:125px 1fr 40px}.rank-label{font-size:11px}.rank-label span{font-size:10px}canvas{min-height:280px}}
+
+/* Mobile dashboard fixes */
+@media(max-width:700px){
+  #efficiencyScreen .card{overflow:hidden}
+  #efficiencyScreen .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%}
+  #efficiencyScreen #lineReport{min-width:980px}
+  #efficiencyScreen .small{line-height:1.45}
+  #efficiencyScreen #effChart{width:100%;height:auto;min-height:240px}
+}
+</style>
+<style>
+/* Compact collapsible setup sections */
+.compact-section{overflow:hidden}
+.compact-section>h2{margin:0}
+.compact-section .compact-section-head{width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f5f7fa;border:0;border-radius:12px;padding:14px 16px;font-size:18px;font-weight:800;color:#17202a;text-align:left;cursor:pointer}
+.compact-section .compact-arrow{font-size:18px;transition:transform .15s}
+.compact-section.open .compact-arrow{transform:rotate(180deg)}
+.compact-section .compact-body{display:none;padding-top:12px}
+.compact-section.open .compact-body{display:block}
+.compact-section .tablewrap{max-width:100%;overflow-x:auto}
+.compact-section #styleTable{min-width:0;width:100%;table-layout:fixed}
+.compact-section #styleTable th:nth-child(1){width:18%}
+.compact-section #styleTable th:nth-child(2){width:62%}
+.compact-section #styleTable th:nth-child(3){width:20%}
+.compact-section #styleTable td{white-space:normal;word-break:break-word;vertical-align:top}
+@media(max-width:600px){.compact-section .compact-section-head{font-size:16px;padding:12px}.compact-section #styleTable{font-size:12px}.compact-section #styleTable button{font-size:11px;padding:4px 6px!important}}
+</style>
+<style>
+.line-accordion{display:flex;flex-direction:column;gap:8px}
+.line-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#17202a;color:#fff;border:0;border-radius:10px;padding:12px 14px;text-align:left}
+.line-head .line-title{font-size:16px;font-weight:800}
+.line-head .line-mini{font-size:12px;opacity:.9}
+.line-head .arrow{font-size:18px;transition:transform .15s}
+.line-item.open .arrow{transform:rotate(180deg)}
+.line-details{display:none;background:#fff;border:1px solid #dbe4ee;border-top:0;border-radius:0 0 10px 10px;padding:10px}
+.line-item.open .line-details{display:block}
+.line-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.line-metric{padding:9px;border-radius:8px;background:#f5f7fa}
+.line-metric span{display:block;font-size:11px;color:#68737d}
+.line-metric b{display:block;font-size:15px;margin-top:2px}
+@media(max-width:600px){.line-grid{grid-template-columns:1fr 1fr}.line-head{padding:11px 12px}.line-details{padding:8px}}
+</style>
+
+<style>
+.extra-op-recommend{margin-top:14px;padding:14px;border-radius:14px;background:#f8fafc;border:1px solid #dbe4ee}
+.extra-op-recommend h3{margin:0 0 8px}
+.extra-op-card{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px;margin:8px 0;background:white;border-radius:10px;border:1px solid #e5e7eb}
+.extra-op-card .rec{font-weight:700}
+.extra-op-card button{padding:7px 12px;border:0;border-radius:8px;cursor:pointer}
+</style>
+
+
+<script>
+/* LINE TARGET EFFICIENCY = LOWEST ALLOCATED OPERATOR EFFICIENCY */
+function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
+  const rows=(allocatedRows||[]).filter(r=>Number.isFinite(Number(r.eff)));
+  const low=rows.length ? rows.reduce((a,b)=>(Number(a.eff)||0)<(Number(b.eff)||0)?a:b) : null;
+  let baseHourly=0;
+  if(styleObj && Array.isArray(styleObj.ops)) {
+    const caps=styleObj.ops.map(op=>{ const qty=Math.max(1,Math.floor(Number(op.qty)||1)); const sam=Number(op.sam)||0; return sam>0?60*qty/sam:0; }).filter(Boolean);
+    baseHourly=caps.length?Math.min(...caps):0;
+  }
+  return {eff:low?Math.round(Number(low.eff)||0):0, operation:'-', baseHourly};
+}
+</script>
+
+</head>
+<body>
+<div id="loginScreen" style="position:fixed;inset:0;background:#17202a;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
+  <div class="card" style="width:100%;max-width:380px">
+    <h2 style="text-align:center">LINE BALANCING APP</h2>
+    <input id="loginUser" placeholder="User ID" style="width:100%;margin-bottom:10px">
+    <input id="loginPass" type="password" placeholder="Password" style="width:100%;margin-bottom:10px">
+    <button onclick="login()" style="width:100%">LOGIN</button>
+    <button onclick="showResetPassword()" style="width:100%;margin-top:10px;background:#18794e;color:#fff;border:0;font-size:16px;padding:12px;border-radius:8px;font-weight:700">🔑 FORGOT PASSWORD / RESET PASSWORD</button>
+    <button onclick="showCreateUserScreen()" style="width:100%;margin-top:10px;background:#2563eb;color:#fff;border:0;font-size:16px;padding:12px;border-radius:8px;font-weight:700">👤 CREATE USER</button>
+    <div id="resetBox" style="display:none;margin-top:12px;padding:12px;border:2px solid #18794e;border-radius:10px">
+      <input id="resetUser" placeholder="User ID" style="width:100%;margin-bottom:8px">
+      <input id="resetNewPass" type="password" placeholder="New Password" style="width:100%;margin-bottom:8px">
+      <input id="resetConfirmPass" type="password" placeholder="Confirm New Password" style="width:100%;margin-bottom:8px">
+      <button class="green" onclick="resetPassword()" style="width:100%">SAVE NEW PASSWORD</button>
+    </div>
+    <div id="loginMsg" class="small" style="margin-top:10px"></div>
+  </div>
+</div>
+<div id="createUserScreen" style="display:none;position:fixed;inset:0;background:#17202a;align-items:center;justify-content:center;z-index:10000;padding:20px">
+  <div class="card" style="width:100%;max-width:420px">
+    <h2 style="text-align:center">👤 CREATE USER</h2>
+    <p class="small">Admin authorization is required to create a new user.</p>
+    <input id="createAdminId" placeholder="Admin User ID" style="width:100%;margin-bottom:8px">
+    <input id="createAdminPass" type="password" placeholder="Admin Password" style="width:100%;margin-bottom:8px">
+    <hr>
+    <input id="createNewUser" placeholder="New User Name" style="width:100%;margin-bottom:8px">
+    <input id="createNewPass" type="password" placeholder="New Password" style="width:100%;margin-bottom:8px">
+    <input id="createConfirmPass" type="password" placeholder="Confirm Password" style="width:100%;margin-bottom:8px">
+    <select id="createRole" style="width:100%;margin-bottom:10px"><option value="supervisor">Supervisor</option><option value="viewer">Viewer</option><option value="admin">Admin</option></select>
+    <button class="green" onclick="createUserFromScreen()" style="width:100%">CREATE USER</button>
+    <button class="secondary" onclick="hideCreateUserScreen()" style="width:100%;margin-top:8px">← BACK TO LOGIN</button>
+    <div id="createUserMsg" class="small" style="margin-top:10px"></div>
+  </div>
+</div>
+<header>LINE BALANCING APP <button class="secondary" onclick="logout()" style="float:right;padding:6px 10px">LOGOUT</button></header>
+<div class="container"><div class="small" id="currentUser"></div>
+<div class="navbar">
+<button class="navbtn active" id="navHome" onclick="showScreen('home')">🏠 DASHBOARD</button>
+<button class="navbtn" id="navOrder" onclick="showScreen('orders')">📦 ORDER PLAN</button>
+<button class="navbtn" id="navMain" onclick="showScreen('main')">🏭 LINE BALANCING</button>
+<button class="navbtn" id="navEff" onclick="showScreen('efficiency')">📊 PRODUCTION & EFFICIENCY</button>
+<button class="navbtn" id="navBottle" onclick="showScreen('bottleneck')">🚦 BOTTLENECK</button>
+</div>
+<div id="homeScreen" class="app-screen active">
+  <div class="hero"><h1>🏭 Production Control Center</h1><p>Line balancing • manpower • production • efficiency • bottleneck monitoring</p></div>
+  <div class="quickgrid">
+    <button class="quick q1" onclick="showScreen('orders')"><span>📦</span>ORDER PLAN</button>
+    <button class="quick q2" onclick="showScreen('main')"><span>⚖️</span>BALANCE</button>
+    <button class="quick q3" onclick="showScreen('efficiency')"><span>📈</span>PRODUCTION</button>
+    <button class="quick q4" onclick="showScreen('bottleneck')"><span>🚦</span>BOTTLENECK</button>
+    <button class="quick q5" onclick="exportProductionReport()"><span>📤</span>EXPORT</button>
+  </div>
+  <div class="card"><h2>📌 Management Summary</h2><div class="stats" id="homeStats"></div></div>
+  <div class="card"><h2>🎯 Line Status — Efficiency & Auto Target</h2><div class="tablewrap"><table><thead><tr><th>Line</th><th>Style</th><th>Auto Target Qty</th><th>Est./Hour</th><th>Actual</th><th>Achievement</th><th>Efficiency</th><th>Status</th></tr></thead><tbody id="homeLineTable"></tbody></table></div></div>
+</div>
+
+<div id="ordersScreen" class="app-screen">
+  <div class="card"><div class="section-title"><h2>📦 ORDER PLANNING</h2><button class="green" onclick="addOrder()">+ ADD ORDER</button></div>
+    <div class="production-form"><div class="three">
+      <input id="orderStyle" placeholder="Style No"><input id="orderBuyer" placeholder="Buyer"><input id="orderColor" placeholder="Color">
+      <input id="orderQty" type="number" min="0" placeholder="Order Qty"><input id="orderShip" type="date"><select id="orderLine"><option value="">Line</option></select>
+    </div></div>
+    <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Style</th><th>Buyer</th><th>Color</th><th>Order Qty</th><th>Produced</th><th>Balance</th><th>Ship Date</th><th>Risk</th><th>Action</th></tr></thead><tbody id="orderTable"></tbody></table></div>
+  </div>
+</div>
+
+<div id="mainScreen" class="app-screen">
+<div class="hero" style="background:linear-gradient(135deg,#0f172a,#1d4ed8,#0891b2)"><h1>⚖️ Smart Line Balance Control</h1><p>Auto allocation • bottleneck protection • manpower utilization • line-by-line balance</p></div>
+<div class="super-kpis" id="superKpis"></div>
+<div class="actionbar"><label style="display:flex;align-items:center;gap:6px;font-weight:700">📅 Allocation Date <input id="allocationDate" type="date" style="width:150px"></label><label style="display:flex;align-items:center;gap:6px;font-weight:700">⏱ Working Hours <input id="workingHours" type="number" min="1" max="24" step="0.5" value="8" style="width:90px" oninput="hoursChanged()"></label><button class="primary" onclick="autoBalance()">⚙️ SMART AUTO BALANCE</button><button class="ghost" onclick="clearBalance()">🧹 CLEAR ALLOCATION</button><button class="ghost" onclick="showScreen('efficiency')">📊 EFFICIENCY</button><button class="ghost" onclick="showScreen('bottleneck')">🚦 BOTTLENECK</button><button class="ghost" onclick="exportProductionReport()">📤 EXPORT REPORT</button><button class="primary" onclick="downloadOverallReport()">📚 DOWNLOAD ALL REPORTS</button></div>
+<div class="card"><div class="section-title"><h2>🎯 Live Line Balance Board</h2><span class="muted">Green = balanced • Orange = warning • Red = shortage</span></div><div id="balanceBoard" class="balance-board"></div></div>
+<div id="userAdmin" class="card" style="display:none">
+<h2>ADMIN — CREATE USER ID</h2>
+<div class="row">
+<input id="newUserId" placeholder="New User ID">
+<input id="newUserPass" type="password" placeholder="New Password">
+<button onclick="createUser()">+ CREATE USER</button>
+</div>
+<div id="userList" class="small" style="margin-top:8px"></div>
+</div>
+
+
+<div class="card">
+<h2>1. STYLE MASTER — ADD STYLE & OPERATIONS</h2>
+<div class="row">
+<input id="styleNo" placeholder="Style No">
+
+<button onclick="addStyle()">+ ADD STYLE</button>
+<button class="danger" onclick="deleteSelectedStyle()">🗑 DELETE STYLE</button>
+</div>
+<p class="small">Select a style below and manually add its operations + SAM, or import the selected style's operations from Excel.</p>
+<div class="row" style="margin-top:8px">
+<input type="file" id="styleOpsExcel" accept=".xlsx,.xls,.csv">
+<button onclick="importStyleOperationsFile()">IMPORT STYLE OPERATIONS</button>
+</div>
+<p class="small">Excel columns: Style No, Operation, SAM, Required Qty. Required Qty tells how many operators are needed for that operation on the line.</p>
+<div class="row">
+<select id="styleSelect" onchange="showStyleOps()"><option value="">Select Style</option></select>
+<input id="opName" placeholder="Operation Name">
+<input id="opSam" type="number" step="0.01" placeholder="SAM">
+    <input id="opQty" type="number" min="1" step="1" value="1" placeholder="Required Qty">
+<button onclick="addOperation()">+ ADD OPERATION</button>
+</div>
+<div id="styleInfo"></div>
+<div class="tablewrap"><table id="styleTable"><thead><tr><th>Style</th><th>Operations / SAM / Required Qty</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card">
+<h2>2. OPERATOR SKILL & EFFICIENCY — EXCEL IMPORT</h2>
+<p class="small">Excel columns: Operator ID, Operator Name, Operation, SAM, Efficiency % — .xlsx, .xls and .csv supported</p>
+<div class="row">
+<input type="file" id="operatorExcel" accept=".xlsx,.xls,.csv">
+<button onclick="importOperatorFile()">IMPORT OPERATOR SKILL</button>
+</div>
+<div class="addbox"><h3>ADD OPERATOR MANUALLY</h3><div class="row">
+<input id="addOpId" placeholder="Operator ID">
+<input id="addOpName" placeholder="Operator Name">
+<input id="addOpOperation" placeholder="Operation">
+<input id="addOpSam" type="number" step="0.01" placeholder="SAM">
+<input id="addOpEff" type="number" min="0" max="100" placeholder="Efficiency %">
+<button class="green" onclick="addOperatorManual()">+ ADD OPERATOR</button>
+</div></div>
+<div class="tablewrap"><table id="operatorTable"><thead><tr><th>ID</th><th>Name</th><th>Operation</th><th>SAM</th><th>Efficiency %</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card">
+<h2>3. DAILY ATTENDANCE — EXCEL IMPORT</h2>
+<p class="small">Excel columns: Operator ID, Present (YES/NO). Present and absent counts are shown; only present operators are used for balancing.</p>
+<div class="row">
+<input type="file" id="attendanceExcel" accept=".xlsx,.xls,.csv">
+<button onclick="importAttendanceFile()">IMPORT ATTENDANCE</button>
+</div>
+<div id="attendanceStats" class="stats" style="margin-top:10px"></div>
+<div id="presentList" style="margin-top:10px"></div>
+<div id="absentList" style="margin-top:10px"></div>
+</div>
+
+<div class="card">
+<h2>4. LINE SETUP</h2>
+<p class="small">Add any number of lines. SAM is taken from the selected Style Operations; no SAM field is required here.</p>
+<div id="lines"></div>
+<button onclick="addLine()">+ ADD LINE</button>
+</div>
+
+<div class="card">
+<h2>5. AUTO LINE BALANCING</h2>
+<p class="small">Balance all lines that have a Style selected. Operators are matched by Operation + SAM. Required Qty creates that many operator slots. Present operators only are used. Each Operator ID is allocated once.</p>
+<button class="green" onclick="autoBalance()">⚙ AUTO BALANCE</button>
+<div id="balanceSummary" style="margin-top:12px"></div>
+<div id="balanceMsg" class="small" style="margin-top:10px"></div>
+</div>
+
+<div class="card">
+<h2>6. FINAL OPERATOR ALLOCATION</h2>
+<div class="production-form"><div class="three">
+<select id="allocationLineFilter" onchange="renderAllocationTable()"><option value="">ALL LINES</option></select>
+<select id="allocationAddLine" onchange="refreshAllocationOperationOptions()"><option value="">SELECT LINE</option></select>
+<select id="allocationAddOperation" onchange="refreshAllocationOperatorOptions()"><option value="">SELECT OPERATION</option></select>
+<select id="allocationAddOperator"><option value="">SELECT OPERATOR</option></select>
+<button class="green" onclick="addAllocationOperator()">+ ADD OPERATOR</button>
+<button class="primary" onclick="autoFillSelectedLine()">⚙ AUTO FILL LINE</button>
+</div></div>
+<div id="allocationControlMsg" class="small" style="margin:8px 0"></div>
+<div class="card" style="margin:10px 0;background:#f8fbff">
+<h3>💡 MANPOWER RECOMMENDATION</h3>
+<p class="small">The app identifies extra / low-capacity operators and recommends the best line & operation where they can improve balance. You can apply the recommendation directly to allocation.</p>
+<div id="manpowerRecommendations"></div>
+</div>
+<div class="production-form" style="margin:10px 0">
+<div class="three">
+<select id="extraManpowerLine"><option value="">SELECT LINE</option></select>
+<select id="extraManpowerOperator"><option value="">SELECT EXTRA OPERATOR</option></select>
+<input id="extraManpowerCount" type="number" min="1" max="20" value="1" placeholder="Extra Manpower Qty">
+<button class="primary" onclick="addExtraManpower()">➕ ADD EXTRA MANPOWER</button>
+</div></div>
+<div class="tablewrap"><table id="allocation"><thead><tr>
+<th>Line</th><th>Style</th><th>Operator ID</th><th>Name</th><th>Operation</th><th>SAM</th><th>Efficiency</th><th>Status</th><th>Action</th>
+</tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="card">
+<h2>7. BALANCE REPORT — EXTRA / SHORTAGE</h2>
+<div id="extraReport"></div>
+<div id="shortageReport" style="margin-top:14px"></div>
+</div>
+
+</div>
+<div id="efficiencyScreen" class="app-screen">
+<div class="card">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+<h2 style="margin:0">📊 LINE EFFICIENCY DASHBOARD</h2>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="primary" onclick="downloadDashboardReport()">📥 DOWNLOAD REPORT</button><button class="green" onclick="downloadOverallReport()">📚 ALL REPORTS</button><button class="ghost" onclick="downloadDashboardCSV()">📄 CSV</button></div>
+</div>
+<div class="stats" id="stats"></div>
+<div id="lineAccordion" class="line-accordion" style="margin-top:10px"></div>
+<div class="tablewrap" style="margin-top:10px"><table id="lineReport"><thead><tr>
+<th>Line</th><th>Style</th><th>Required</th><th>Allocated</th><th>Shortage</th><th>Auto Target Qty</th><th>Est./Hour</th><th>Est./Day</th><th>Efficiency</th><th>Balance %</th>
+</tr></thead><tbody></tbody></table></div>
+<div class="small" style="margin-top:8px">📅 Date-wise allocation history compares today with the previous allocation date. Operators returning to their previous line get same-line priority; changed/new operators are highlighted in orange. &nbsp; Auto Target Qty = theoretical bottleneck capacity × Line Efficiency × manpower balance × Working Hours. Change Working Hours above and run Auto Balance to refresh.</div>
+<canvas id="effChart" width="900" height="280"></canvas>
+</div>
+
+<div class="card"><h2>⏱️ HOURLY PRODUCTION ENTRY</h2>
+<div class="production-form"><div class="three">
+<select id="prodLine"><option value="">Select Line</option></select><input id="prodHour" placeholder="Hour (e.g. 9-10)"><input id="prodTarget" type="number" min="0" placeholder="Target">
+<input id="prodActual" type="number" min="0" placeholder="Actual"><input id="prodEfficiency" type="number" min="0" max="200" placeholder="Efficiency %"><button class="green" onclick="addProduction()">+ SAVE PRODUCTION</button>
+</div></div>
+<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Line</th><th>Hour</th><th>Target</th><th>Actual</th><th>Achievement</th><th>Efficiency</th><th>Action</th></tr></thead><tbody id="productionTable"></tbody></table></div>
+<canvas id="productionChart" class="miniChart" width="900" height="240"></canvas>
+</div>
+
+</div>
+<div id="bottleneckScreen" class="app-screen">
+<div class="card">
+<h2>🚦 BOTTLENECK OPERATION DASHBOARD</h2>
+<p class="small">Higher operation load indicates a possible bottleneck.</p>
+<canvas id="bottleChart" width="900" height="280"></canvas>
+<div id="bottleText"></div>
+</div>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+let styles=[], operators=[], present=new Set(), absent=new Set(), attendanceTotal=new Set(), lines=[];
+let orders=[], production=[];
+let lastAllocation=[];
+let allocationHistory=[];
+let currentUser='';
+const DEFAULT_USERS={admin:'admin123',line01:'line01',line02:'line02',line03:'line03'};
+let USERS=JSON.parse(localStorage.getItem('lineBalancingUsers')||'null')||DEFAULT_USERS;
+function saveUsers(){
+  try{ localStorage.setItem('lineBalancingUsers',JSON.stringify(USERS)); return true; }
+  catch(e){ return false; }
+}
+function readUsers(){
+  try{
+    const raw=localStorage.getItem('lineBalancingUsers');
+    if(raw){ const parsed=JSON.parse(raw); if(parsed && typeof parsed==='object') return parsed; }
+  }catch(e){}
+  return {...DEFAULT_USERS};
+}
+function showResetPassword(){
+  const box=document.getElementById('resetBox');
+  box.style.display = box.style.display==='none' ? 'block' : 'none';
+  const msg=document.getElementById('loginMsg');
+  msg.textContent='';
+  const loginId=document.getElementById('loginUser').value.trim();
+  if(loginId) document.getElementById('resetUser').value=loginId;
+  if(box.style.display==='block') setTimeout(()=>document.getElementById('resetUser').focus(),50);
+}
+function resetPassword(){
+  // Reset is local to this app/device. It does not require the old password.
+  const u=document.getElementById('resetUser').value.trim();
+  const p=document.getElementById('resetNewPass').value;
+  const c=document.getElementById('resetConfirmPass').value;
+  const msg=document.getElementById('loginMsg');
+  if(!u||!p||!c){ msg.textContent='Enter User ID, New Password and Confirm Password.'; return; }
+  USERS=readUsers();
+  const key=Object.keys(USERS).find(k=>k.toLowerCase()===u.toLowerCase());
+  if(!key){ msg.textContent='User ID not found. Use the exact User ID created in the app.'; return; }
+  if(p.length<4){ msg.textContent='Password must be at least 4 characters.'; return; }
+  if(p!==c){ msg.textContent='New passwords do not match.'; return; }
+  USERS[key]=p;
+  // Update the live in-memory user list first, so login works immediately even
+  // if a file-manager/content:// browser blocks persistent localStorage.
+  let persisted=false;
+  try{
+    localStorage.setItem('lineBalancingUsers',JSON.stringify(USERS));
+    const check=JSON.parse(localStorage.getItem('lineBalancingUsers')||'{}');
+    persisted=check[key]===p;
+  }catch(e){ persisted=false; }
+  document.getElementById('loginUser').value=key;
+  document.getElementById('loginPass').value='';
+  document.getElementById('resetUser').value='';
+  document.getElementById('resetNewPass').value='';
+  document.getElementById('resetConfirmPass').value='';
+  document.getElementById('resetBox').style.display='none';
+  msg.textContent=persisted
+    ? '✅ Password reset successful. Enter the new password and tap LOGIN.'
+    : '✅ Password reset successful for this session. This browser/file viewer does not allow password storage; use a normal browser/WebView for permanent saving.';
+}
+
+function createUser(){if(currentUser!=='admin')return alert('Admin login required.');const u=document.getElementById('newUserId').value.trim(),p=document.getElementById('newUserPass').value;if(!u||!p)return alert('Enter User ID and Password');if(USERS[u])return alert('User ID already exists.');USERS[u]={password:p,role:'supervisor'};saveUsers();document.getElementById('newUserId').value='';document.getElementById('newUserPass').value='';renderUsers();alert('User created: '+u);}
+function renderUsers(){const el=document.getElementById('userList');if(el)el.textContent='Users: '+Object.keys(USERS).join(', ');}
+
+function todayISO(){ const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+function initAllocationDate(){ const el=document.getElementById('allocationDate'); if(el && !el.value) el.value=todayISO(); }
+function previousAllocationForDate(date){
+  const ds=(allocationHistory||[]).filter(x=>x.date && x.date<date).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  return ds.length ? ds[0] : null;
+}
+function applyAllocationComparison(rows,date){
+  const prev=previousAllocationForDate(date); const prevRows=prev&&Array.isArray(prev.rows)?prev.rows:[];
+  const prevMap=new Map(prevRows.map(r=>[String(r.operatorId),r]));
+  return (rows||[]).map(r=>{ const old=prevMap.get(String(r.operatorId)); const sameLine=!!old && String(old.line)===String(r.line); return {...r,allocationDate:date,replacementToday:!sameLine,changeStatus:sameLine?'SAME LINE':(old?'MOVED / REPLACEMENT':'NEW TODAY')}; });
+}
+function saveAllocationSnapshot(){
+  initAllocationDate(); const date=document.getElementById('allocationDate')?.value||todayISO();
+  const snap={date,rows:(lastAllocation||[]).map(r=>({...r}))};
+  allocationHistory=(allocationHistory||[]).filter(x=>x.date!==date); allocationHistory.push(snap);
+  allocationHistory.sort((a,b)=>String(a.date).localeCompare(String(b.date))); saveUserData();
+}
+function userKey(){ return 'lineBalancingData_'+currentUser; }
+
+function saveUserData(){
+  if(!currentUser)return;
+  localStorage.setItem(userKey(),JSON.stringify({
+    styles,operators,
+    present:[...present],
+    absent:[...absent],
+    attendanceTotal:[...attendanceTotal],
+    lines, orders, production, lastLineReport, lastAllocation, lastBottleData, allocationHistory
+  }));
+}
+
+function loadUserData(){
+  const raw=localStorage.getItem(userKey());
+  if(raw){
+    try{
+      const d=JSON.parse(raw);
+      styles=d.styles||[];
+      operators=d.operators||[];
+      present=new Set(d.present||[]);
+      absent=new Set(d.absent||[]);
+      attendanceTotal=new Set(d.attendanceTotal||[]);
+      lines=d.lines||[];
+      orders=d.orders||[]; production=d.production||[];
+      lastLineReport=Array.isArray(d.lastLineReport)?d.lastLineReport:[];
+      lastAllocation=Array.isArray(d.lastAllocation)?d.lastAllocation:[];
+      allocationHistory=Array.isArray(d.allocationHistory)?d.allocationHistory:[];
+      lastBottleData=d.lastBottleData||{};
+    }catch(e){ resetUserData(); }
+  }else{
+    styles=[];operators=[];present=new Set();absent=new Set();attendanceTotal=new Set();lines=[];orders=[];production=[];lastLineReport=[];lastAllocation=[];lastBottleData={};allocationHistory=[];
+    addLine();
+    saveUserData();
+  }
+  refreshStyles();
+  renderOperatorTable();
+  renderAttendance(); autoSave();
+  refreshLines();
+  drawDashboard();
+  refreshOrderLineSelect(); renderOrders(); renderProduction(); drawProductionChart(); drawHome();
+}
+
+function resetUserData(){
+  styles=[];operators=[];present=new Set();absent=new Set();attendanceTotal=new Set();lines=[];orders=[];production=[];
+  addLine();
+}
+
+function login(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  if(!u||!p)return alert('Enter User ID and Password');
+  USERS=readUsers();
+  const key=Object.keys(USERS).find(k=>k.toLowerCase()===u.toLowerCase());
+  if(!key || USERS[key]!==p)return document.getElementById('loginMsg').textContent='Invalid User ID or Password.';
+  currentUser=key;
+  localStorage.setItem('lineBalancingCurrentUser',u);
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('currentUser').textContent='Logged in: '+u;
+  loadUserData();
+  initAllocationDate();
+}
+
+function logout(){
+  saveUserData();
+  currentUser='';
+  localStorage.removeItem('lineBalancingCurrentUser');
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginMsg').textContent='';
+  document.getElementById('loginScreen').style.display='flex';
+}
+
+function autoSave(){ if(currentUser)saveUserData(); }
+
+function renderOperatorTable(){
+  document.querySelector('#operatorTable tbody').innerHTML=operators.map(x=>
+    `<tr><td>${x.id}</td><td>${x.name}</td><td>${x.op}</td><td>${x.sam}</td><td>${x.eff}%</td><td><button class=\"danger\" style=\"padding:4px 7px\" onclick=\"deleteOperator(${JSON.stringify(String(x.id))})\">DELETE</button></td></tr>`
+  ).join('');
+}
+
+function deleteOperator(id){
+  const key=String(id);
+  const op=operators.find(x=>String(x.id)===key);
+  if(!op)return;
+  if(!confirm('Delete operator '+key+'?'))return;
+  operators=operators.filter(x=>String(x.id)!==key);
+  present.delete(key); absent.delete(key); attendanceTotal.delete(key);
+  autoSave(); renderOperatorTable(); renderAttendance();
+}
+
+function addOperatorManual(){
+ const id=document.getElementById('addOpId').value.trim(),name=document.getElementById('addOpName').value.trim(),op=document.getElementById('addOpOperation').value.trim();
+ const sam=Number(document.getElementById('addOpSam').value),eff=Number(document.getElementById('addOpEff').value);
+ if(!id||!name||!op||!sam||isNaN(eff)) return alert('Enter Operator ID, Name, Operation, SAM and Efficiency.');
+ if(operators.some(x=>String(x.id).toLowerCase()===id.toLowerCase())) return alert('Operator ID already exists.');
+ operators.push({id,name,op,sam,eff}); autoSave(); renderOperatorTable();
+ ['addOpId','addOpName','addOpOperation','addOpSam','addOpEff'].forEach(k=>document.getElementById(k).value='');
+}
+function showScreen(name){
+ document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active'));
+ const map={home:'homeScreen',orders:'ordersScreen',main:'mainScreen',efficiency:'efficiencyScreen',bottleneck:'bottleneckScreen'};
+ document.getElementById(map[name]||'homeScreen').classList.add('active');
+ document.querySelectorAll('.navbtn').forEach(x=>x.classList.remove('active'));
+ const nav={home:'navHome',orders:'navOrder',main:'navMain',efficiency:'navEff',bottleneck:'navBottle'};
+ document.getElementById(nav[name]||'navHome').classList.add('active');
+ if(name==='home'){drawHome();renderSuperBoard();}
+ if(name==='main'){refreshAllocationControls();renderAllocationTable();}
+ if(name==='orders'){refreshOrderLineSelect();renderOrders();}
+ if(name==='efficiency'){drawDashboard();renderProduction();drawProductionChart();}
+ if(name==='bottleneck') drawBottleneck(lastBottleData||{});
+}
+let lastBottleData={};
+let lastLineReport=[];
+
+function addStyle(){
+ const s=document.getElementById('styleNo').value.trim();
+ if(!s)return alert('Enter Style No');
+ styles.push({style:s,ops:[]}); autoSave();
+ document.getElementById('styleNo').value='';
+ refreshStyles();
+}
+function deleteSelectedStyle(){
+ const i=document.getElementById('styleSelect').value;
+ if(i==='') return alert('Select a Style No first.');
+ deleteStyle(Number(i));
+}
+function refreshStyles(){
+ const sel=document.getElementById('styleSelect');
+ sel.innerHTML='<option value="">Select Style</option>'+styles.map((x,i)=>`<option value="${i}">${x.style}</option>`).join('');
+ const tb=document.querySelector('#styleTable tbody');
+ tb.innerHTML=styles.map((x,i)=>`<tr><td>${x.style}</td><td>${x.ops.map((o,j)=>`${o.name} (SAM ${o.sam}, Qty ${o.qty||1}) <button class=\"danger\" style=\"padding:4px 7px;margin-left:4px\" onclick=\"deleteOperation(${i},${j})\">DELETE</button>`).join(', ')||'No operations added'}</td><td><button class=\"danger\" onclick=\"deleteStyle(${i})\">DELETE STYLE</button></td></tr>`).join('');
+ showStyleOps();
+ refreshLineSelects();
+}
+function showStyleOps(){
+ const i=document.getElementById('styleSelect').value, box=document.getElementById('styleInfo');
+ if(i===''){box.innerHTML='';return}
+ box.innerHTML='<b>'+styles[i].style+'</b> — '+(styles[i].ops.length?styles[i].ops.map(o=>`<span class="tag">${o.name} | SAM ${o.sam} | Qty ${o.qty||1}</span>`).join(''):' Add operations below.');
+}
+function importStyleOperationsFile(){
+  const f=document.getElementById('styleOpsExcel').files[0];
+  const selected=document.getElementById('styleSelect').value;
+  if(selected==='')return alert('Select a Style No first.');
+  if(!f)return alert('Choose the Style Operations Excel file.');
+
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''})
+        .map(r=>r.map(v=>String(v??'').trim()))
+        .filter(r=>r.some(Boolean));
+
+      if(rows.length<2)return alert('No style operation data found.');
+
+      const h=rows[0].map(x=>x.toLowerCase().replace(/[_-]/g,' '));
+      const findCol=(terms,fallback)=>{
+        const i=h.findIndex(x=>terms.some(t=>x.includes(t)));
+        return i>=0?i:fallback;
+      };
+
+      const styleI=findCol(['style no','style number','style'],0);
+      const opI=findCol(['operation','op name','op'],1);
+      const samI=findCol(['sam'],2);
+       const qtyI=findCol(['required qty','required quantity','qty','quantity'],3);
+      const selectedStyle=styles[Number(selected)].style;
+
+      const imported=rows.slice(1).map(r=>({
+        style:r[styleI]||'',
+        name:r[opI]||'',
+        sam:Number(String(r[samI]||'').replace('%',''))||0,
+         qty:Math.max(1,Math.floor(Number(String(r[qtyI]||'1').replace(',',''))||1))
+      })).filter(x=>x.name && x.sam);
+
+      const styleRows=imported.filter(x=>
+        !x.style || x.style.toLowerCase()===selectedStyle.toLowerCase()
+      );
+
+      if(!styleRows.length){
+        return alert('No operations found for Style No: '+selectedStyle);
+      }
+
+      styles[Number(selected)].ops=styleRows.map(x=>({
+        name:x.name,
+        sam:x.sam,
+        qty:x.qty||1
+      }));
+
+      autoSave();
+      refreshStyles();
+      document.getElementById('styleSelect').value=selected;
+      showStyleOps();
+
+      alert(`${styleRows.length} operations imported for Style ${selectedStyle}.`);
+    }catch(err){
+      console.error(err);
+      alert('Style Operations Excel import failed. Please check the Excel columns: Style No, Operation, SAM, Required Qty.');
+    }
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+function deleteStyle(i){
+  if(i<0||i>=styles.length)return;
+  if(!confirm('Delete style '+styles[i].style+' and all its operations?'))return;
+  styles.splice(i,1);
+  lines.forEach(l=>{ if(Number(l.style)===i) l.style=''; else if(Number(l.style)>i) l.style=String(Number(l.style)-1); });
+  autoSave(); refreshStyles(); refreshLines();
+}
+function deleteOperation(styleIndex,opIndex){
+  if(!styles[styleIndex]||!styles[styleIndex].ops[opIndex])return;
+  const op=styles[styleIndex].ops[opIndex];
+  if(!confirm('Delete operation '+op.name+'?'))return;
+  styles[styleIndex].ops.splice(opIndex,1);
+  autoSave(); refreshStyles(); refreshLines();
+}
+
+function addOperation(){
+  const i=document.getElementById('styleSelect').value;
+  if(i==='' )return alert('Select Style first');
+  const n=document.getElementById('opName').value.trim();
+  const sam=Number(document.getElementById('opSam').value);
+  const qty=Math.max(1,Math.floor(Number(document.getElementById('opQty').value)||1));
+  if(!n||!sam)return alert('Enter Operation and SAM');
+  styles[i].ops.push({name:n,sam:sam,qty:qty});
+  autoSave();
+  document.getElementById('opName').value='';
+  document.getElementById('opSam').value='';
+  document.getElementById('opQty').value='1';
+  refreshStyles();
+}
+function addLine(){
+  const id=lines.length?Math.max(...lines.map(x=>Number(x.id)||0))+1:1;
+  lines.push({id,style:'',target:0,status:'Running',eff:0});
+  autoSave(); refreshLines();
+}
+
+function refreshLineSelects(){ refreshLines(false); }
+
+function refreshLines(redraw=true){
+  const box=document.getElementById('lines');
+  box.innerHTML=lines.map((l,idx)=>`<div class="linebox">
+    <b>LINE ${l.id}</b>
+    <div class="row" style="margin-top:8px">
+      <select onchange="lines[${idx}].style=this.value;autoSave();refreshLines(false)">
+        <option value="">Select Style</option>
+        ${styles.map((s,i)=>`<option value="${i}" ${String(i)===String(l.style)?'selected':''}>${s.style}</option>`).join('')}
+      </select>
+      <input type="number" min="0" placeholder="Daily Target" value="${l.target||0}" onchange="lines[${idx}].target=Number(this.value)||0;autoSave()">
+      <select onchange="lines[${idx}].status=this.value;autoSave()">
+        <option ${l.status==='Running'?'selected':''}>Running</option>
+        <option ${l.status==='Hold'?'selected':''}>Hold</option>
+        <option ${l.status==='Closed'?'selected':''}>Closed</option>
+      </select>
+      <button class="danger" onclick="lines.splice(${idx},1);autoSave();refreshLines()">REMOVE</button>
+    </div>
+    <div class="small">${l.style!=='' && styles[l.style] ?
+      'Operations: '+styles[l.style].ops.map(o=>o.name+' / SAM '+o.sam+' / Qty '+(o.qty||1)).join(' • ') :
+      'Select style to load its operations.'}</div>
+  </div>`).join('');
+  if(redraw)drawDashboard();
+}
+
+function operatorCanMatch(o,op){
+  return String(o.op||'').trim().toLowerCase()===String(op.name||'').trim().toLowerCase()
+    && Math.abs((Number(o.sam)||0)-(Number(op.sam)||0))<0.011;
+}
+
+function activeLines(){
+  return lines.filter(l=>l.status!=='Closed' && l.style!=='' && styles[l.style] && styles[l.style].ops.length);
+}
+
+function refreshExtraManpowerControls(){
+  const ls=document.getElementById('extraManpowerLine'), os=document.getElementById('extraManpowerOperator');
+  if(!ls||!os)return;
+  const oldL=ls.value, oldO=os.value;
+  ls.innerHTML='<option value="">SELECT LINE</option>'+activeLines().map(l=>`<option value="${l.id}">LINE ${l.id}</option>`).join('');
+  if([...ls.options].some(o=>o.value===oldL))ls.value=oldL;
+  const used=new Set((lastAllocation||[]).map(r=>String(r.operatorId)));
+  const presentOps=attendanceTotal.size?operators.filter(o=>present.has(o.id)):operators;
+  const extras=presentOps.filter(o=>!used.has(String(o.id)));
+  os.innerHTML='<option value="">SELECT EXTRA OPERATOR</option>'+extras.map(o=>`<option value="${String(o.id).replace(/"/g,'&quot;')}">${o.id} - ${o.name} (${o.eff}%)</option>`).join('');
+  if([...os.options].some(o=>o.value===oldO))os.value=oldO;
+}
+function buildManpowerRecommendations(){
+  const box=document.getElementById('manpowerRecommendations'); if(!box)return;
+  const rows=lastAllocation||[], presentOps=attendanceTotal.size?operators.filter(o=>present.has(o.id)):operators;
+  const used=new Set(rows.map(r=>String(r.operatorId))), extras=presentOps.filter(o=>!used.has(String(o.id)));
+  const rec=[];
+  activeLines().forEach(l=>{
+    const st=styles[l.style], lr=rows.filter(r=>String(r.line)===String(l.id));
+    st.ops.forEach(op=>{
+      const req=Math.max(1,Math.floor(Number(op.qty)||1));
+      const matched=lr.filter(r=>operatorCanMatch({op:r.operation,sam:r.sam},op)).length;
+      const shortage=Math.max(0,req-matched);
+      if(shortage>0){
+        const candidates=extras.filter(o=>operatorCanMatch(o,op)).sort((a,b)=>(Number(b.eff)||0)-(Number(a.eff)||0));
+        rec.push({line:l,op,shortage,candidates,reason:'SHORTAGE / MISSING SKILL'});
+      }
+    });
+    if(lr.length){
+      const avg=lr.reduce((a,r)=>a+(Number(r.eff)||0),0)/lr.length;
+      const low=lr.filter(r=>(Number(r.eff)||0)<70);
+      if(low.length && extras.length) rec.push({line:l,op:null,shortage:0,candidates:extras.filter(o=>!lr.some(r=>String(r.operatorId)===String(o.id))).sort((a,b)=>(Number(b.eff)||0)-(Number(a.eff)||0)),reason:`LOW CAPACITY LINE — current avg ${Math.round(avg)}%`});
+    }
+  });
+  if(!rec.length){box.innerHTML='<div class="small">No immediate manpower recommendation. All required skills are filled with the current operators.</div>';return;}
+  box.innerHTML='<div class="tablewrap"><table><thead><tr><th>Priority</th><th>Line</th><th>Operation</th><th>Issue</th><th>Recommended Operator</th><th>Efficiency</th><th>Action</th></tr></thead><tbody>'+rec.slice(0,30).map((r,i)=>{
+    const c=r.candidates[0];
+    return `<tr><td><b>${i+1}</b></td><td>Line ${r.line.id}</td><td>${r.op?r.op.name:'MANPOWER SUPPORT'}</td><td>${r.reason}${r.shortage?` (${r.shortage} needed)`:''}</td><td>${c?`${c.id} - ${c.name}`:'No matching skill available'}</td><td>${c?c.eff+'%':'-'}</td><td>${c&&r.op?`<button class="green" style="padding:4px 7px" onclick="applyManpowerRecommendation(${JSON.stringify(String(r.line.id))},${JSON.stringify(r.op.name)},${JSON.stringify(String(c.id))})">ADD</button>`:'Find / Add Skilled Operator'}</td></tr>`;
+  }).join('')+'</tbody></table></div>';
+}
+function applyManpowerRecommendation(lineId,opName,operatorId){
+  const l=activeLines().find(x=>String(x.id)===String(lineId)); if(!l)return;
+  const st=styles[l.style], op=st.ops.find(x=>String(x.name).trim().toLowerCase()===String(opName).trim().toLowerCase());
+  const o=operators.find(x=>String(x.id)===String(operatorId));
+  if(!op||!o||!operatorCanMatch(o,op))return alert('Operator no longer matches this operation/SAM.');
+  if((lastAllocation||[]).some(r=>String(r.operatorId)===String(o.id)))return alert('Operator is already allocated.');
+  lastAllocation.push({line:l.id,style:st.style,operatorId:o.id,operatorName:o.name,operation:op.name,sam:Number(op.sam)||0,eff:Number(o.eff)||0,status:'ALLOCATED'});
+  rebuildReportsFromAllocation();
+  document.getElementById('allocationControlMsg').textContent=`Recommended operator ${o.id} added to Line ${l.id} → ${op.name}.`;
+}
+function addExtraManpower(){
+  const lineId=document.getElementById('extraManpowerLine')?.value, id=document.getElementById('extraManpowerOperator')?.value, count=Math.max(1,Math.floor(Number(document.getElementById('extraManpowerCount')?.value)||1));
+  if(!lineId||!id)return alert('Select Line and Extra Operator.');
+  const l=activeLines().find(x=>String(x.id)===String(lineId)); const o=operators.find(x=>String(x.id)===String(id));
+  if(!l||!o)return alert('Invalid line/operator.');
+  if((lastAllocation||[]).some(r=>String(r.operatorId)===String(o.id)))return alert('This operator is already allocated.');
+  lastAllocation.push({line:l.id,style:styles[l.style].style,operatorId:o.id,operatorName:o.name,operation:'EXTRA MANPOWER / SUPPORT',sam:0,eff:Number(o.eff)||0,status:'EXTRA MANPOWER'});
+  rebuildReportsFromAllocation();
+  document.getElementById('allocationControlMsg').textContent=`Extra manpower ${o.id} added to Line ${l.id}.`;
+}
+
+function refreshAllocationControls(){
+  const lineFilter=document.getElementById('allocationLineFilter');
+  const addLine=document.getElementById('allocationAddLine');
+  if(!lineFilter||!addLine)return;
+  const currentFilter=lineFilter.value, currentAdd=addLine.value;
+  const opts='<option value="">ALL LINES</option>'+activeLines().map(l=>`<option value="${l.id}">LINE ${l.id}</option>`).join('');
+  lineFilter.innerHTML=opts; if([...lineFilter.options].some(o=>o.value===currentFilter))lineFilter.value=currentFilter;
+  addLine.innerHTML='<option value="">SELECT LINE</option>'+activeLines().map(l=>`<option value="${l.id}">LINE ${l.id}</option>`).join('');
+  if([...addLine.options].some(o=>o.value===currentAdd))addLine.value=currentAdd;
+  refreshAllocationOperationOptions();
+  refreshExtraManpowerControls();
+}
+function refreshAllocationOperationOptions(){
+  const lineId=document.getElementById('allocationAddLine')?.value;
+  const sel=document.getElementById('allocationAddOperation'); if(!sel)return;
+  const l=activeLines().find(x=>String(x.id)===String(lineId));
+  const ops=l&&styles[l.style]?styles[l.style].ops:[];
+  sel.innerHTML='<option value="">SELECT OPERATION</option>'+ops.map((o,i)=>`<option value="${i}">${o.name} (SAM ${o.sam}, Qty ${o.qty||1})</option>`).join('');
+  refreshAllocationOperatorOptions();
+}
+function refreshAllocationOperatorOptions(){
+  const lineId=document.getElementById('allocationAddLine')?.value;
+  const opIdx=document.getElementById('allocationAddOperation')?.value;
+  const sel=document.getElementById('allocationAddOperator'); if(!sel)return;
+  const l=activeLines().find(x=>String(x.id)===String(lineId));
+  const op=l&&styles[l.style]&&opIdx!==''?styles[l.style].ops[Number(opIdx)]:null;
+  const used=new Set((lastAllocation||[]).map(r=>String(r.operatorId)));
+  const presentOps=attendanceTotal.size?operators.filter(o=>present.has(o.id)):operators;
+  const candidates=op?presentOps.filter(o=>!used.has(String(o.id))&&operatorCanMatch(o,op)).sort((a,b)=>(Number(b.eff)||0)-(Number(a.eff)||0)):[];
+  sel.innerHTML='<option value="">SELECT OPERATOR</option>'+candidates.map(o=>`<option value="${String(o.id).replace(/"/g,'&quot;')}">${o.id} - ${o.name} (${o.eff}%)</option>`).join('');
+}
+function renderAllocationTable(){
+  const tb=document.querySelector('#allocation tbody'); if(!tb)return;
+  const filter=document.getElementById('allocationLineFilter')?.value||'';
+  const rows=(lastAllocation||[]).filter(r=>!filter||String(r.line)===String(filter));
+  tb.innerHTML=rows.map(r=>{const repl=r.replacementToday; return `<tr style="${repl?'background:#fff3cd;border-left:5px solid #ff9800':''}"><td>${r.line}</td><td>${r.style}</td><td><b>${r.operatorId}</b></td><td>${r.operatorName}</td><td>${r.operation}</td><td>${r.sam}</td><td>${r.eff}%</td><td>${repl?'<span style="color:#e65100;font-weight:800">🔶 REPLACEMENT / NEW TODAY</span>':(r.status||'ALLOCATED')}</td><td><button class="danger" style="padding:4px 7px" onclick="removeAllocationOperator(${JSON.stringify(String(r.operatorId))})">REMOVE</button></td></tr>`}).join('')||'<tr><td colspan="9">No allocated operators for this line.</td></tr>';
+  refreshAllocationControls();
+}
+function rebuildReportsFromAllocation(){
+  const active=activeLines(); const rows=lastAllocation||[]; const used=new Set(rows.map(r=>String(r.operatorId)));
+  const presentOps=attendanceTotal.size?operators.filter(o=>present.has(o.id)):operators;
+  const lineReport=[]; const shortages=[];
+  active.forEach(l=>{
+    const st=styles[l.style]; const required=st.ops.reduce((sum,o)=>sum+Math.max(1,Math.floor(Number(o.qty)||1)),0);
+    const lr=rows.filter(r=>String(r.line)===String(l.id)); const allocated=lr.length;
+    st.ops.forEach(op=>{
+      const qty=Math.max(1,Math.floor(Number(op.qty)||1));
+      let matched=lr.filter(r=>operatorCanMatch({op:r.operation,sam:r.sam},op)).length;
+      for(let i=matched;i<qty;i++) shortages.push({line:l.id,style:st.style,operation:op.name,sam:op.sam,slot:i+1});
+    });
+    const bottleneck=calculateBottleneckLineEfficiency(st,lr);
+    const eff=bottleneck.eff;
+    const balance=Math.round(allocated/Math.max(required,1)*100);
+    const baseHourly=bottleneck.baseHourly;
+    const hours=Math.max(0,Number(document.getElementById('workingHours')?.value)||8);
+    const hourly=Math.floor(baseHourly*(eff/100)), daily=Math.floor(hourly*hours);
+    l.eff=eff;l.hourlyQty=hourly;l.dailyQty=daily;l.autoTargetQty=daily;
+    lineReport.push({line:l.id,style:st.style,required,allocated,shortage:Math.max(0,required-allocated),eff,balance,targetQty:daily,hourlyQty:hourly,dailyQty:daily,baseHourlyQty:Math.floor(baseHourly)});
+  });
+  lastLineReport=lineReport;
+  const totalReq=lineReport.reduce((a,r)=>a+r.required,0), totalAlloc=rows.length, totalShort=Math.max(0,totalReq-totalAlloc), extra=presentOps.filter(o=>!used.has(String(o.id)));
+  document.getElementById('balanceSummary').innerHTML=`<div class="stats"><div class="stat">LINES<b>${active.length}</b></div><div class="stat">REQUIRED<b>${totalReq}</b></div><div class="stat">ALLOCATED<b>${totalAlloc}</b></div><div class="stat">${totalShort?'SHORTAGE':'EXTRA'}<b>${totalShort||extra.length}</b></div><div class="stat">EST. HOURLY QTY<b>${lineReport.reduce((a,r)=>a+r.hourlyQty,0)}</b></div><div class="stat">EST. DAILY QTY<b>${lineReport.reduce((a,r)=>a+r.dailyQty,0)}</b></div></div>`;
+  document.getElementById('balanceMsg').textContent=totalShort?`SHORTAGE: ${totalShort} operator assignments could not be filled.`:`EXTRA OPERATORS: ${extra.length} present operators are not required for the selected lines.`;
+  document.getElementById('extraReport').innerHTML=extra.length?`<b>EXTRA OPERATORS (${extra.length})</b><div class="tablewrap"><table><thead><tr><th>ID</th><th>Name</th><th>Operation</th><th>SAM</th><th>Efficiency</th><th>Status</th></tr></thead><tbody>${extra.map(o=>`<tr><td>${o.id}</td><td>${o.name}</td><td>${o.op}</td><td>${o.sam}</td><td>${o.eff}%</td><td>EXTRA</td></tr>`).join('')}</tbody></table></div>`:`<b>EXTRA OPERATORS (0)</b>`;
+  document.getElementById('shortageReport').innerHTML=shortages.length?`<b>SHORTAGE (${shortages.length})</b><div class="tablewrap"><table><thead><tr><th>Line</th><th>Style</th><th>Operation</th><th>Required SAM</th><th>Slot</th><th>Status</th></tr></thead><tbody>${shortages.map(x=>`<tr><td>${x.line}</td><td>${x.style}</td><td>${x.operation}</td><td>${x.sam}</td><td>${x.slot}</td><td>SHORTAGE</td></tr>`).join('')}</tbody></table></div>`:`<b>SHORTAGE (0) — All required operator slots are filled.</b>`;
+  const tb=document.querySelector('#lineReport tbody'); if(tb)tb.innerHTML=lineReport.map(r=>`<tr><td>${r.line}</td><td>${r.style}</td><td>${r.required}</td><td>${r.allocated}</td><td>${r.shortage}</td><td><b>${r.targetQty}</b></td><td>${r.hourlyQty}</td><td>${r.dailyQty}</td><td><b>${r.eff}%</b></td><td>${r.balance}%</td></tr>`).join('');
+  renderAllocationTable(); refreshAllocationOperatorOptions(); refreshExtraManpowerControls(); buildManpowerRecommendations(); autoSave(); renderSuperBoard(); drawHome(); drawDashboard({},lineReport);
+}
+function addAllocationOperator(){
+  const lineId=document.getElementById('allocationAddLine')?.value, opIdx=document.getElementById('allocationAddOperation')?.value, id=document.getElementById('allocationAddOperator')?.value;
+  if(!lineId||opIdx===''||!id)return alert('Select Line, Operation and Operator.');
+  const l=activeLines().find(x=>String(x.id)===String(lineId)); const op=styles[l.style].ops[Number(opIdx)]; const o=operators.find(x=>String(x.id)===String(id));
+  if(!o||!operatorCanMatch(o,op))return alert('Selected operator does not match the operation/SAM.');
+  if((lastAllocation||[]).some(r=>String(r.operatorId)===String(id)))return alert('This Operator ID is already allocated.');
+  const required=styles[l.style].ops.reduce((a,x)=>a+Math.max(1,Math.floor(Number(x.qty)||1)),0); const current=(lastAllocation||[]).filter(r=>String(r.line)===String(lineId)).length;
+  if(current>=required)return alert('This line is already fully filled.');
+  lastAllocation.push({line:l.id,style:styles[l.style].style,operatorId:o.id,operatorName:o.name,operation:op.name,sam:Number(op.sam)||0,eff:Number(o.eff)||0,status:'ALLOCATED'});
+  rebuildReportsFromAllocation(); document.getElementById('allocationControlMsg').textContent=`Operator ${o.id} added to Line ${l.id}. Allocation updated.`;
+}
+function removeAllocationOperator(id){
+  const row=(lastAllocation||[]).find(r=>String(r.operatorId)===String(id)); if(!row)return;
+  if(!confirm(`Remove Operator ${id} from Line ${row.line}?`))return;
+  lastAllocation=lastAllocation.filter(r=>String(r.operatorId)!==String(id));
+  rebuildReportsFromAllocation(); document.getElementById('allocationControlMsg').textContent=`Operator ${id} removed. Shortage/Balance updated.`;
+}
+function autoFillSelectedLine(){
+  const lineId=document.getElementById('allocationAddLine')?.value; if(!lineId)return alert('Select a Line first.');
+  const l=activeLines().find(x=>String(x.id)===String(lineId)); if(!l)return;
+  const st=styles[l.style], used=new Set((lastAllocation||[]).map(r=>String(r.operatorId)));
+  const presentOps=attendanceTotal.size?operators.filter(o=>present.has(o.id)):operators;
+  st.ops.forEach(op=>{const qty=Math.max(1,Math.floor(Number(op.qty)||1)); for(let n=0;n<qty;n++){
+    const current=(lastAllocation||[]).filter(r=>String(r.line)===String(lineId)&&operatorCanMatch({op:r.operation,sam:r.sam},op)).length; if(current+n>=qty)break;
+    const cand=presentOps.filter(o=>!used.has(String(o.id))&&operatorCanMatch(o,op)).sort((a,b)=>(Number(b.eff)||0)-(Number(a.eff)||0))[0];
+    if(cand){used.add(String(cand.id));lastAllocation.push({line:l.id,style:st.style,operatorId:cand.id,operatorName:cand.name,operation:op.name,sam:Number(op.sam)||0,eff:Number(cand.eff)||0,status:'ALLOCATED'});}
+  }});
+  rebuildReportsFromAllocation(); document.getElementById('allocationControlMsg').textContent=`Line ${lineId} auto-filled with all available matching operators.`;
+}
+
+function clearBalance(){
+ if(!confirm('Clear current operator allocation and balance report?'))return;
+ document.querySelector('#allocation tbody').innerHTML='';
+ document.getElementById('balanceSummary').innerHTML='';
+ document.getElementById('extraReport').innerHTML='';
+ document.getElementById('shortageReport').innerHTML='';
+ lastLineReport=[]; lastBottleData={}; lastAllocation=[];
+ renderSuperBoard(); drawHome();
+}
+function renderSuperBoard(){
+ const k=document.getElementById('superKpis'), b=document.getElementById('balanceBoard'); if(!k||!b)return;
+ const active=activeLines(); const presentCount=attendanceTotal.size?present.size:operators.length;
+ const req=lastLineReport.reduce((a,r)=>a+r.required,0), alloc=lastLineReport.reduce((a,r)=>a+r.allocated,0), shortage=Math.max(0,req-alloc);
+ const avg=lastLineReport.length?Math.round(lastLineReport.reduce((a,r)=>a+r.eff,0)/lastLineReport.length):0;
+ const balance=req?Math.round(alloc/req*100):0; const extra=Math.max(0,presentCount-alloc);
+ k.innerHTML=`<div class="super-kpi kblue"><small>ACTIVE LINES</small><strong>${active.length}</strong></div><div class="super-kpi kcyan"><small>PRESENT OPS</small><strong>${presentCount}</strong></div><div class="super-kpi kgreen"><small>ALLOCATED</small><strong>${alloc}</strong></div><div class="super-kpi kred"><small>SHORTAGE</small><strong>${shortage}</strong></div><div class="super-kpi korange"><small>EXTRA</small><strong>${extra}</strong></div><div class="super-kpi kpurple"><small>AVG EFFICIENCY</small><strong>${avg}%</strong></div>`;
+ b.innerHTML=active.map(l=>{const r=lastLineReport.find(x=>String(x.line)===String(l.id))||{required:0,allocated:0,shortage:0,eff:0,balance:0}; const pct=Math.min(100,Math.max(0,r.balance||0)); const cls=r.shortage>0?'chip-red':r.balance>=95?'chip-green':'chip-orange'; return `<div class="balance-line"><h3>LINE ${l.id}</h3><div class="muted">${styles[l.style]?.style||'No Style'} • ${l.status}</div><div class="meter"><i style="width:${pct}%"></i></div><span class="chip chip-blue">Required ${r.required}</span><span class="chip chip-green">Allocated ${r.allocated}</span><span class="chip ${cls}">${r.shortage>0?'SHORTAGE '+r.shortage:(r.balance>=95?'BALANCED':'CHECK')}</span><div style="margin-top:7px"><b>Balance ${r.balance}%</b> &nbsp; Efficiency ${r.eff}%</div></div>`}).join('')||'<div class="muted">Add lines and select a style with operations.</div>';
+}
+function showCreateUserScreen(){document.getElementById('loginScreen').style.display='none';document.getElementById('createUserScreen').style.display='flex';document.getElementById('createUserMsg').textContent='';}
+function hideCreateUserScreen(){document.getElementById('createUserScreen').style.display='none';document.getElementById('loginScreen').style.display='flex';}
+function createUserFromScreen(){
+  const admin=document.getElementById('createAdminId').value.trim();
+  const apass=document.getElementById('createAdminPass').value;
+  const u=document.getElementById('createNewUser').value.trim();
+  const p=document.getElementById('createNewPass').value;
+  const cp=document.getElementById('createConfirmPass').value;
+  const role=document.getElementById('createRole').value;
+  const au=USERS[admin] ?? USERS[String(admin).toLowerCase()];
+  const adminPass=(typeof au==='object'?au.password:au);
+  if(!au || adminPass!==apass || String(admin).toLowerCase()!=='admin'){document.getElementById('createUserMsg').textContent='Admin ID and password are incorrect.';return;}
+  if(!u||!p){document.getElementById('createUserMsg').textContent='Enter username and password.';return;}
+  if(p!==cp){document.getElementById('createUserMsg').textContent='Passwords do not match.';return;}
+  if(USERS[u] || USERS[String(u).toLowerCase()]){document.getElementById('createUserMsg').textContent='User already exists.';return;}
+  USERS[u]={password:p,role}; saveUsers();
+  document.getElementById('createUserMsg').textContent='User created successfully: '+u;
+  ['createNewUser','createNewPass','createConfirmPass'].forEach(id=>document.getElementById(id).value='');
+  renderUsers();
+}
+function hoursChanged(){if(typeof lastAllocation!=='undefined' && lastAllocation.length) autoBalance();}
+function autoBalance(){
+  const body=document.querySelector('#allocation tbody');
+  let out=[], assigned=new Set(), bottle={}, lineReport=[], shortages=[];
+  const active=activeLines();
+
+  if(!active.length){
+    body.innerHTML='';
+    document.getElementById('balanceSummary').innerHTML='<div class="stat">NO LINES READY<b>0</b></div>';
+    document.getElementById('extraReport').innerHTML='';
+    document.getElementById('shortageReport').innerHTML='';
+    return alert('Select a Style with Operations for at least one line.');
+  }
+
+  active.forEach(l=>{
+    const st=styles[l.style];
+    st.ops.forEach(op=>{
+      const qty=Math.max(1,Math.floor(Number(op.qty)||1));
+      bottle[op.name]=(bottle[op.name]||0)+(Number(op.sam)||0)*qty;
+    });
+  });
+
+  // Create one demand slot for every required operator.
+  // Each slot belongs to a specific line + operation + slot number.
+  const demands=[];
+  active.forEach(l=>{
+    const st=styles[l.style];
+    st.ops.forEach((op,opIndex)=>{
+      const qty=Math.max(1,Math.floor(Number(op.qty)||1));
+      for(let slot=0;slot<qty;slot++){
+        demands.push({line:l,style:st,op,opIndex,slot,assigned:null});
+      }
+    });
+  });
+
+  const presentOps=attendanceTotal.size?operators.filter(o=>present.has(o.id)):operators;
+  const requiredByLine=new Map(active.map(l=>[String(l.id),styles[l.style].ops.reduce((sum,op)=>sum+Math.max(1,Math.floor(Number(op.qty)||1)),0)]));
+  const allocatedByLine=new Map(active.map(l=>[String(l.id),0]));
+
+  // Fill lines in priority order: Line 1 first, then Line 2, etc.
+  // This keeps a line fully filled whenever the required skills/operators
+  // are available. If a skill is missing on one line, only that operation
+  // is left as shortage; the remaining available operators continue to the
+  // next line instead of spreading operators across all lines.
+  active.forEach(l=>{
+    const lineDemands=demands.filter(d=>String(d.line.id)===String(l.id));
+    lineDemands.forEach(d=>{
+      const candidates=presentOps.filter(o=>!assigned.has(o.id) && operatorCanMatch(o,d.op));
+      if(!candidates.length) return;
+      const prev=previousAllocationForDate(document.getElementById('allocationDate')?.value||todayISO());
+      const prevSameLine=new Set((prev?.rows||[]).filter(r=>String(r.line)===String(l.id)).map(r=>String(r.operatorId)));
+      candidates.sort((a,b)=>((prevSameLine.has(String(b.id))?1:0)-(prevSameLine.has(String(a.id))?1:0)) || (Number(b.eff)||0)-(Number(a.eff)||0) || String(a.id).localeCompare(String(b.id)));
+      const o=candidates[0];
+      assigned.add(o.id);
+      d.assigned=o;
+      allocatedByLine.set(String(l.id),(allocatedByLine.get(String(l.id))||0)+1);
+      out.push([l.id,styles[l.style].style,o.id,o.name,d.op.name,d.op.sam,o.eff,'ALLOCATED']);
+    });
+  });
+
+  lastAllocation=out.map(r=>({line:r[0],style:r[1],operatorId:r[2],operatorName:r[3],operation:r[4],sam:Number(r[5])||0,eff:Number(r[6])||0,status:r[7]}));
+  lastAllocation=applyAllocationComparison(lastAllocation,document.getElementById('allocationDate')?.value||todayISO());
+
+  active.forEach(l=>{
+    const st=styles[l.style];
+    const required=requiredByLine.get(String(l.id))||0;
+    const allocated=allocatedByLine.get(String(l.id))||0;
+
+    // Build shortage directly from unfilled demand slots, so duplicate
+    // operation names and Required Qty are handled correctly.
+    demands.filter(d=>String(d.line.id)===String(l.id) && !d.assigned).forEach(d=>{
+      shortages.push({line:l.id,style:st.style,operation:d.op.name,sam:d.op.sam,slot:d.slot+1});
+    });
+
+    const lr=out.filter(r=>Number(r[0])===Number(l.id)).map(r=>({line:r[0],style:r[1],operatorId:r[2],operatorName:r[3],operation:r[4],sam:r[5],eff:r[6],status:r[7]}));
+    const bottleneck=calculateBottleneckLineEfficiency(st,lr);
+    const eff=bottleneck.eff;
+    const balance=Math.round((allocated/Math.max(required,1))*100);
+    // Target follows the lowest-capacity operation/operator, not the average operator efficiency.
+    const baseHourlyQty=bottleneck.baseHourly;
+    const hours=Math.max(0,Number(document.getElementById('workingHours')?.value)||8);
+    const hourlyQty=Math.floor(baseHourlyQty*(eff/100));
+    const dailyQty=Math.floor(hourlyQty*hours);
+    const targetQty=dailyQty;
+    l.eff=eff; l.hourlyQty=hourlyQty; l.dailyQty=dailyQty; l.autoTargetQty=targetQty;
+    lineReport.push({line:l.id,style:st.style,required,allocated,shortage:Math.max(0,required-allocated),eff,balance,targetQty,hourlyQty,dailyQty,baseHourlyQty:Math.floor(baseHourlyQty),bottleneckOperation:bottleneck.operation});
+  });
+
+  renderAllocationTable();
+  refreshExtraManpowerControls();
+  saveAllocationSnapshot();
+
+  const extra=presentOps.filter(o=>!assigned.has(o.id));
+  const totalRequired=lineReport.reduce((a,r)=>a+r.required,0);
+  const totalAllocated=out.length;
+  const totalShortage=Math.max(0,totalRequired-totalAllocated);
+
+  document.getElementById('balanceSummary').innerHTML=`
+    <div class="stats">
+      <div class="stat">LINES<b>${active.length}</b></div>
+      <div class="stat">REQUIRED<b>${totalRequired}</b></div>
+      <div class="stat">ALLOCATED<b>${totalAllocated}</b></div>
+      <div class="stat">${totalShortage>0?'SHORTAGE':'EXTRA'}<b>${totalShortage>0?totalShortage:extra.length}</b></div>
+      <div class="stat">EST. HOURLY QTY<b>${lineReport.reduce((a,r)=>a+(Number(r.hourlyQty)||0),0)}</b></div>
+      <div class="stat">EST. DAILY QTY<b>${lineReport.reduce((a,r)=>a+(Number(r.dailyQty)||0),0)}</b></div>
+    </div>`;
+
+  document.getElementById('balanceMsg').textContent =
+    totalShortage>0
+      ? `SHORTAGE: ${totalShortage} operator assignments could not be filled.`
+      : `EXTRA OPERATORS: ${extra.length} present operators are not required for the selected lines.`;
+
+  document.getElementById('extraReport').innerHTML = extra.length ?
+    `<b>EXTRA OPERATORS (${extra.length})</b>
+     <div class="tablewrap"><table><thead><tr><th>ID</th><th>Name</th><th>Operation</th><th>SAM</th><th>Efficiency</th><th>Status</th></tr></thead>
+     <tbody>${extra.map(o=>`<tr><td>${o.id}</td><td>${o.name}</td><td>${o.op}</td><td>${o.sam}</td><td>${o.eff}%</td><td>EXTRA</td></tr>`).join('')}</tbody></table></div>`
+    : `<b>EXTRA OPERATORS (0)</b>`;
+
+  document.getElementById('shortageReport').innerHTML = shortages.length ?
+    `<b>SHORTAGE (${shortages.length})</b>
+     <div class="tablewrap"><table><thead><tr><th>Line</th><th>Style</th><th>Operation</th><th>Required SAM</th><th>Slot</th><th>Status</th></tr></thead>
+     <tbody>${shortages.map(s=>`<tr><td>${s.line}</td><td>${s.style}</td><td>${s.operation}</td><td>${s.sam}</td><td>${s.slot}</td><td>SHORTAGE</td></tr>`).join('')}</tbody></table></div>`
+    : `<b>SHORTAGE (0) — All required operator slots are filled.</b>`;
+
+  const tb=document.querySelector('#lineReport tbody');
+  tb.innerHTML=lineReport.map(r=>
+    `<tr><td>${r.line}</td><td>${r.style}</td><td>${r.required}</td><td>${r.allocated}</td><td>${r.shortage}</td><td><b>${r.targetQty}</b></td><td>${r.hourlyQty}</td><td>${r.dailyQty}</td><td><b>${r.eff}%</b></td><td>${r.balance}%</td></tr>`
+  ).join('');
+
+  autoSave();
+  lastLineReport=lineReport.map(r=>({...r}));
+  refreshAllocationControls();
+  renderAllocationTable();
+  renderSuperBoard();
+  drawDashboard(bottle,lastLineReport);
+  drawBottleneck(bottle);
+}
+
+
+function refreshOrderLineSelect(){
+ const s=document.getElementById('orderLine'); if(!s)return;
+ s.innerHTML='<option value="">Line</option>'+lines.map(l=>`<option value="${l.id}">Line ${l.id}</option>`).join('');
+ const p=document.getElementById('prodLine'); if(p)p.innerHTML='<option value="">Select Line</option>'+lines.map(l=>`<option value="${l.id}">Line ${l.id}</option>`).join('');
+}
+function addOrder(){
+ const style=document.getElementById('orderStyle').value.trim(),buyer=document.getElementById('orderBuyer').value.trim(),color=document.getElementById('orderColor').value.trim(),qty=Number(document.getElementById('orderQty').value)||0,ship=document.getElementById('orderShip').value,line=document.getElementById('orderLine').value;
+ if(!style||qty<=0||!ship)return alert('Enter Style No, Order Qty and Ship Date.');
+ orders.push({id:Date.now(),style,buyer,color,qty,ship,line,produced:0}); autoSave(); renderOrders(); drawHome();
+ ['orderStyle','orderBuyer','orderColor','orderQty','orderShip'].forEach(k=>document.getElementById(k).value=''); document.getElementById('orderLine').value='';
+}
+function deleteOrder(id){if(!confirm('Delete this order?'))return;orders=orders.filter(o=>o.id!==id);autoSave();renderOrders();drawHome();}
+function renderOrders(){
+ const tb=document.getElementById('orderTable'); if(!tb)return;
+ const today=new Date(); today.setHours(0,0,0,0);
+ tb.innerHTML=orders.map(o=>{const prod=Number(o.produced)||0,b=Math.max(0,(Number(o.qty)||0)-prod),days=Math.ceil((new Date(o.ship)-today)/86400000),risk=b===0?'COMPLETE':days<0?'OVERDUE':days<=2?'HIGH':days<=5?'WATCH':'OK';return `<tr><td>${o.style}</td><td>${o.buyer||'-'}</td><td>${o.color||'-'}</td><td>${o.qty}</td><td>${prod}</td><td><b>${b}</b></td><td>${o.ship}</td><td><span class="statuspill ${risk==='OK'||risk==='COMPLETE'?'good':risk==='WATCH'?'warn':'risk'}">${risk}</span></td><td><button class="danger" onclick="deleteOrder(${o.id})">DELETE</button></td></tr>`}).join('')||'<tr><td colspan="9">No orders added.</td></tr>';
+}
+function addProduction(){
+ const line=document.getElementById('prodLine').value,hour=document.getElementById('prodHour').value.trim(),target=Number(document.getElementById('prodTarget').value)||0,actual=Number(document.getElementById('prodActual').value)||0,eff=Number(document.getElementById('prodEfficiency').value)||0;
+ if(!line||!hour||target<=0)return alert('Select Line and enter Hour + Target.');
+ production.push({id:Date.now(),line,hour,target,actual,eff});
+ const matching=orders.filter(o=>String(o.line)===String(line)); if(matching.length&&actual>0){matching[0].produced=(Number(matching[0].produced)||0)+actual;}
+ autoSave();renderProduction();drawProductionChart();renderOrders();drawHome();
+ ['prodHour','prodTarget','prodActual','prodEfficiency'].forEach(k=>document.getElementById(k).value='');
+}
+function deleteProduction(id){if(!confirm('Delete this production entry?'))return;const x=production.find(p=>p.id===id);if(x){const matching=orders.filter(o=>String(o.line)===String(x.line));if(matching.length)matching[0].produced=Math.max(0,(Number(matching[0].produced)||0)-(Number(x.actual)||0));}production=production.filter(p=>p.id!==id);autoSave();renderProduction();drawProductionChart();renderOrders();drawHome();}
+function renderProduction(){
+ const tb=document.getElementById('productionTable'); if(!tb)return;
+ tb.innerHTML=production.slice().reverse().map(p=>{const ach=p.target?Math.round(p.actual/p.target*100):0;return `<tr><td>Line ${p.line}</td><td>${p.hour}</td><td>${p.target}</td><td>${p.actual}</td><td>${ach}%</td><td>${p.eff||0}%</td><td><button class="danger" onclick="deleteProduction(${p.id})">DELETE</button></td></tr>`}).join('')||'<tr><td colspan="7">No production entries.</td></tr>';
+}
+function drawProductionChart(){
+ const c=document.getElementById('productionChart');if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.font='13px Arial';ctx.fillStyle='#17202a';ctx.fillText('Actual Production by Line',20,20);
+ const by={};production.forEach(p=>{by[p.line]=(by[p.line]||0)+(Number(p.actual)||0)});const arr=Object.entries(by);const max=Math.max(...arr.map(x=>x[1]),1),bw=Math.min(90,(c.width-90)/Math.max(arr.length,1)-15);arr.forEach((x,i)=>{const xx=55+i*(bw+15),h=x[1]/max*170;ctx.fillStyle=['#2563eb','#16a34a','#f59e0b','#dc2626','#7c3aed','#0891b2'][i%6];ctx.fillRect(xx,215-h,bw,h);ctx.fillStyle='#17202a';ctx.fillText('Line '+x[0],xx,235);ctx.fillText(String(x[1]),xx+10,205-h);});
+}
+function drawHome(){
+ const box=document.getElementById('homeStats');if(!box)return; const active=activeLines(); const presentCount=attendanceTotal.size?present.size:operators.length; const req=lastLineReport.reduce((a,r)=>a+r.required,0),alloc=lastLineReport.reduce((a,r)=>a+r.allocated,0),avg=lastLineReport.length?Math.round(lastLineReport.reduce((a,r)=>a+r.eff,0)/lastLineReport.length):0; const target=lines.reduce((a,l)=>a+(Number(l.target)||0),0),actual=production.reduce((a,p)=>a+(Number(p.actual)||0),0); const ach=target?Math.round(actual/target*100):0;
+ box.innerHTML=`<div class="stat">LINES<b>${active.length}</b></div><div class="stat">PRESENT<b>${presentCount}</b></div><div class="stat">ALLOCATED<b>${alloc}</b></div><div class="stat">SHORTAGE<b>${Math.max(0,req-alloc)}</b></div><div class="stat">AVG EFF<b>${avg}%</b></div><div class="stat">TODAY TARGET<b>${target}</b></div><div class="stat">TODAY ACTUAL<b>${actual}</b></div><div class="stat">ACHIEVEMENT<b>${ach}%</b></div>`;
+ const tb=document.getElementById('homeLineTable'); if(!tb)return;tb.innerHTML=lines.map(l=>{const r=lastLineReport.find(x=>Number(x.line)===Number(l.id))||{eff:l.eff||0,targetQty:l.autoTargetQty||0,hourlyQty:l.hourlyQty||0};const autoTarget=Number(r.targetQty||l.autoTargetQty||0);const t=autoTarget||Number(l.target||0);const a=production.filter(p=>String(p.line)===String(l.id)).reduce((a,p)=>a+(Number(p.actual)||0),0);const ach=t?Math.round(a/t*100):0;return `<tr><td>${l.id}</td><td>${l.style!==''&&styles[l.style]?styles[l.style].style:'-'}</td><td><b>${autoTarget}</b></td><td>${Number(r.hourlyQty||l.hourlyQty||0)}</td><td>${a}</td><td>${ach}%</td><td><b>${r.eff||0}%</b></td><td><span class="statuspill ${l.status==='Running'?'run':l.status==='Hold'?'hold':'closed'}">${l.status}</span></td></tr>`}).join('')||'<tr><td colspan="8">No lines.</td></tr>';
+}
+function downloadDashboardReport(){
+ if(typeof XLSX==='undefined') return alert('Excel library not loaded.');
+ const report=(lastLineReport||[]).map(r=>({
+   Line:r.line, Style:r.style, Required:r.required, Allocated:r.allocated,
+   Shortage:r.shortage, 'Auto Target Qty':r.targetQty, 'Est./Hour':r.hourlyQty,
+   'Est./Day':r.dailyQty, 'Efficiency %':r.eff, 'Balance %':r.balance,
+   'Working Hours':Number(document.getElementById('workingHours')?.value||8)
+ }));
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(report),'Line Report');
+ const summary=[
+   {Metric:'Lines',Value:activeLines().length},
+   {Metric:'Present Operators',Value:attendanceTotal.size?present.size:operators.length},
+   {Metric:'Required Slots',Value:report.reduce((a,r)=>a+(Number(r.Required)||0),0)},
+   {Metric:'Allocated Operators',Value:report.reduce((a,r)=>a+(Number(r.Allocated)||0),0)},
+   {Metric:'Shortage',Value:report.reduce((a,r)=>a+(Number(r.Shortage)||0),0)},
+   {Metric:'Extra Operators',Value:Math.max(0,(attendanceTotal.size?present.size:operators.length)-report.reduce((a,r)=>a+(Number(r.Allocated)||0),0))},
+   {Metric:'Average Efficiency %',Value:report.length?Math.round(report.reduce((a,r)=>a+(Number(r['Efficiency %'])||0),0)/report.length):0},
+   {Metric:'Balance %',Value:(()=>{const q=report.reduce((a,r)=>a+(Number(r.Required)||0),0),a=report.reduce((a,r)=>a+(Number(r.Allocated)||0),0);return q?Math.round(a/q*100):0})()},
+   {Metric:'Working Hours',Value:Number(document.getElementById('workingHours')?.value||8)}
+ ];
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(summary),'Summary');
+ XLSX.writeFile(wb,'Line_Balancing_Report.xlsx');
+}
+function downloadDashboardCSV(){
+ const report=(lastLineReport||[]);
+ const rows=[['Line','Style','Required','Allocated','Shortage','Auto Target Qty','Est./Hour','Est./Day','Efficiency %','Balance %','Working Hours']];
+ report.forEach(r=>rows.push([r.line,r.style,r.required,r.allocated,r.shortage,r.targetQty,r.hourlyQty,r.dailyQty,r.eff,r.balance,Number(document.getElementById('workingHours')?.value||8)]));
+ const csv=rows.map(row=>row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Line_Balancing_Report.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+function exportProductionReport(){ downloadOverallReport(); }
+
+function downloadOverallReport(){
+ if(typeof XLSX==='undefined') return alert('Excel library not loaded.');
+ const wb=XLSX.utils.book_new();
+ const hours=Number(document.getElementById('workingHours')?.value||8);
+ const presentCount=attendanceTotal.size?present.size:operators.length;
+ const req=(lastLineReport||[]).reduce((a,r)=>a+(Number(r.required)||0),0);
+ const alloc=(lastLineReport||[]).reduce((a,r)=>a+(Number(r.allocated)||0),0);
+ const shortage=(lastLineReport||[]).reduce((a,r)=>a+(Number(r.shortage)||0),0);
+ const avgEff=lastLineReport.length?Math.round(lastLineReport.reduce((a,r)=>a+(Number(r.eff)||0),0)/lastLineReport.length):0;
+ const balance=req?Math.round(alloc/req*100):0;
+ const extra=Math.max(0,presentCount-alloc);
+ const add=(name,rows)=>{ const safe=Array.isArray(rows)?rows:[]; XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(safe.length?safe:[{Message:'No data available'}]),name.slice(0,31)); };
+ add('Summary',[
+  {Metric:'Lines',Value:activeLines().length},{Metric:'Present Operators',Value:presentCount},{Metric:'Required Slots',Value:req},
+  {Metric:'Allocated Operators',Value:alloc},{Metric:'Shortage',Value:shortage},{Metric:'Extra Operators',Value:extra},
+  {Metric:'Average Efficiency %',Value:avgEff},{Metric:'Balance %',Value:balance},{Metric:'Working Hours',Value:hours},
+  {Metric:'Order Qty',Value:orders.reduce((a,o)=>a+(Number(o.qty)||0),0)},{Metric:'Production Actual',Value:production.reduce((a,p)=>a+(Number(p.actual)||0),0)}
+ ]);
+ add('Line Efficiency',(lastLineReport||[]).map(r=>({Line:r.line,Style:r.style,Required:r.required,Allocated:r.allocated,Shortage:r.shortage,Extra:Math.max(0,(Number(r.required)||0)-(Number(r.allocated)||0)), 'Auto Target Qty':r.targetQty,'Est./Hour':r.hourlyQty,'Est./Day':r.dailyQty,'Efficiency %':r.eff,'Balance %':r.balance,'Working Hours':hours})));
+ add('Allocation',(lastAllocation||[]).map(r=>({Date:r.allocationDate||'',Line:r.line,Style:r.style,'Operator ID':r.operatorId,Name:r.operatorName,Operation:r.operation,SAM:r.sam,'Efficiency %':r.eff,Status:r.replacementToday?'REPLACEMENT / NEW TODAY':r.status})));
+ add('Allocation History',(allocationHistory||[]).flatMap(h=>(h.rows||[]).map(r=>({Date:h.date,Line:r.line,Style:r.style,'Operator ID':r.operatorId,Name:r.operatorName,Operation:r.operation,SAM:r.sam,'Efficiency %':r.eff,Status:r.replacementToday?'REPLACEMENT / NEW TODAY':r.status}))));
+ add('Operators',operators.map(o=>({'Operator ID':o.id,Name:o.name,Operation:o.operation,SAM:o.sam,'Efficiency %':o.eff}))); 
+ add('Attendance',Array.from(present||[]).map(id=>{const o=operators.find(x=>String(x.id)===String(id))||{};return {'Operator ID':id,Name:o.name||'',Operation:o.operation||'',Status:'Present'};}));
+ add('Styles',styles.map((st,i)=>({Style:st.style||'',Description:st.desc||'',Index:i+1})));
+ add('Style Operations',styles.flatMap((st,i)=>(st.ops||[]).map(op=>({Style:st.style||'',Operation:op.name||'',SAM:op.sam||'', 'Required Qty':op.qty||1}))));
+ add('Lines',lines.map(l=>({Line:l.id,Style:l.style!==''&&styles[l.style]?styles[l.style].style:'',Status:l.status||'',Target:l.target||0,'Efficiency %':l.eff||0,'Auto Target Qty':l.autoTargetQty||0,'Est./Hour':l.hourlyQty||0,'Est./Day':l.dailyQty||0})));
+ add('Orders',orders.map(o=>({...o,Balance:Math.max(0,(Number(o.qty)||0)-(Number(o.produced)||0))})));
+ add('Production',production.map(p=>({...p,Achievement:p.target?Math.round((Number(p.actual)||0)/Number(p.target)*100):0})));
+ add('Bottleneck',Object.entries(lastBottleData||{}).map(([operation,load])=>({Operation:operation,Load:load})));
+ const improvement=(lastAllocation||[]).map(r=>{const eff=Number(r.eff)||0; const gap=Math.max(0,85-eff); const priority=eff<70?'Critical':eff<85?'Development':'Good'; const action=eff<60?'Skill training + method study':eff<70?'Re-training + close supervision':eff<85?'Coaching + method improvement':'Maintain & cross-train'; return {Line:r.line,'Operator ID':r.operatorId,Name:r.operatorName,Operation:r.operation,SAM:r.sam,'Efficiency %':eff,'Gap to 85%':gap,Priority,Recommended_Action:action};});
+ add('Improvement',improvement);
+ XLSX.writeFile(wb,'Line_Balancing_Overall_Report.xlsx');
+}
+
+function toggleLineDetails(index){
+  document.querySelectorAll('.line-item').forEach((el,i)=>{
+    if(i===index) el.classList.toggle('open');
+    else el.classList.remove('open');
+  });
+}
+function syncLowestOperatorLineEfficiency(){
+  if(!Array.isArray(lastAllocation) || !lastAllocation.length || !Array.isArray(lastLineReport)) return;
+  lastLineReport.forEach(r=>{
+    const rows=lastAllocation.filter(x=>String(x.line)===String(r.line));
+    const vals=rows.map(x=>Number(x.eff)).filter(Number.isFinite);
+    if(!vals.length) return;
+    const low=Math.round(Math.min(...vals));
+    r.eff=low;
+    r.lowCapacityEfficiency=low;
+    const lowRow=rows.reduce((a,b)=>!a || (Number(b.eff)||0)<(Number(a.eff)||0)?b:a,null);
+    r.lowCapacityOperator=lowRow ? (lowRow.operatorName||lowRow[3]||'-') : '-';
+    const line=lines.find(x=>String(x.id)===String(r.line));
+    if(line) line.eff=low;
+  });
+}
+function drawDashboard(bottle={},report=[]){
+  syncLowestOperatorLineEfficiency();
+  const stats=document.getElementById('stats');
+  if(!stats)return;
+  const active=activeLines();
+  if(!report.length && lastLineReport.length) report=lastLineReport;
+  const data=report.length?report:active.map(l=>({line:l.id,style:(styles[l.style]&&styles[l.style].style)||'-',required:0,allocated:0,shortage:0,targetQty:0,hourlyQty:0,dailyQty:0,eff:Number(l.eff)||0,balance:0}));
+  const avg=data.length?Math.round(data.reduce((a,r)=>a+(Number(r.eff)||0),0)/data.length):0;
+  const totalPresent=attendanceTotal.size?present.size:operators.length;
+  const totalRequired=data.reduce((a,r)=>a+(Number(r.required)||0),0);
+  const totalAllocated=data.reduce((a,r)=>a+(Number(r.allocated)||0),0);
+  const totalShortage=data.reduce((a,r)=>a+(Number(r.shortage)||0),0);
+  const extra=Math.max(0,totalPresent-totalAllocated);
+  const balance=totalRequired?Math.round(totalAllocated/totalRequired*100):0;
+  stats.innerHTML=`
+    <div class="stat">LINES<b>${active.length}</b></div>
+    <div class="stat">PRESENT<b>${totalPresent}</b></div>
+    <div class="stat">REQUIRED<b>${totalRequired}</b></div>
+    <div class="stat">ALLOCATED<b>${totalAllocated}</b></div>
+    <div class="stat">EXTRA<b>${extra}</b></div>
+    <div class="stat">SHORTAGE<b>${totalShortage}</b></div>
+    <div class="stat">AVG EFFICIENCY<b>${avg}%</b></div>
+    <div class="stat">BALANCE<b>${balance}%</b></div>`;
+
+  const tb=document.querySelector('#lineReport tbody');
+  if(tb){
+    tb.innerHTML=data.map(r=>`<tr>
+      <td>${r.line}</td><td>${r.style||'-'}</td><td>${Number(r.required)||0}</td><td>${Number(r.allocated)||0}</td><td>${Number(r.shortage)||0}</td>
+      <td><b>${Number(r.targetQty)||0}</b></td><td>${Number(r.hourlyQty)||0}</td><td>${Number(r.dailyQty)||0}</td><td><b>${Number(r.eff)||0}%</b></td><td>${Number(r.balance)||0}%</td>
+    </tr>`).join('')||'<tr><td colspan="10">Run Auto Balance to generate line-wise target.</td></tr>';
+    const wrap=tb.closest('.tablewrap'); if(wrap)wrap.scrollLeft=0;
+  }
+
+  const acc=document.getElementById('lineAccordion');
+  if(acc){
+    acc.innerHTML=data.length ? data.map((r,i)=>`
+      <div class="line-item" data-line-index="${i}">
+        <button type="button" class="line-head" onclick="toggleLineDetails(${i})">
+          <span><span class="line-title">Line ${r.line}</span><br><span class="line-mini">${r.style||'-'} · Efficiency ${Number(r.eff)||0}% · Target ${Number(r.targetQty)||0}</span></span>
+          <span class="arrow">▼</span>
+        </button>
+        <div class="line-details"><div class="line-grid">
+          <div class="line-metric"><span>Required</span><b>${Number(r.required)||0}</b></div>
+          <div class="line-metric"><span>Allocated</span><b>${Number(r.allocated)||0}</b></div>
+          <div class="line-metric"><span>Shortage</span><b>${Number(r.shortage)||0}</b></div>
+          <div class="line-metric"><span>Balance %</span><b>${Number(r.balance)||0}%</b></div>
+          <div class="line-metric"><span>Auto Target Qty</span><b>${Number(r.targetQty)||0}</b></div>
+          <div class="line-metric"><span>Estimated / Hour</span><b>${Number(r.hourlyQty)||0}</b></div>
+          <div class="line-metric"><span>Estimated / Day</span><b>${Number(r.dailyQty)||0}</b></div>
+          <div class="line-metric"><span>Line Efficiency</span><b>${Number(r.eff)||0}%</b></div>
+          <div class="line-metric"><span>Lowest Capacity Operator</span><b>${r.lowCapacityOperator||'-'}</b></div>
+          <div class="line-metric"><span>Bottleneck Operation</span><b>${r.bottleneckOperation||'-'}</b></div>
+        </div></div>
+      </div>`).join('') : '<div class="small">Run Auto Balance to generate line-wise target.</div>';
+  }
+
+  const c=document.getElementById('effChart');
+  if(!c)return;
+  const ctx=c.getContext('2d'); ctx.clearRect(0,0,c.width,c.height); ctx.font='14px Arial'; ctx.fillStyle='#17202a'; ctx.fillText('Line Efficiency %',20,20);
+  const base=235,max=100,bw=Math.min(90,(c.width-80)/Math.max(data.length,1)-15);
+  const colors=['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#14b8a6'];
+  data.forEach((r,i)=>{const x=55+i*(bw+15),h=Math.min(180,(Number(r.eff)||0)/max*180);ctx.fillStyle=colors[i%colors.length];ctx.fillRect(x,base-h,bw,h);ctx.strokeStyle='#334155';ctx.strokeRect(x,base-180,bw,180);ctx.fillStyle='#17202a';ctx.fillText('Line '+r.line,x,255);ctx.fillText((Number(r.eff)||0)+'%',x+10,base-h-8);});
+}
+function importOperatorFile(){
+  const f=document.getElementById('operatorExcel').files[0];
+  if(!f)return alert('Choose Excel/CSV');
+  readExcelFile(f,'operator');
+}
+
+function importAttendanceFile(){
+  const f=document.getElementById('attendanceExcel').files[0];
+  if(!f)return alert('Choose Excel/CSV');
+  readExcelFile(f,'attendance');
+}
+
+function readExcelFile(file,type){
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      parseRows(rows,type);
+    }catch(err){
+      console.error(err);
+      alert('Excel import failed. Please check that the file is a valid .xlsx/.xls/.csv file.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseRows(rows,type){
+  rows=rows.map(r=>r.map(v=>String(v??'').trim())).filter(r=>r.some(Boolean));
+  if(rows.length<2)return alert('No data found in the Excel file.');
+
+  const h=rows[0].map(x=>x.toLowerCase().replace(/[_-]/g,' '));
+  const idx=(terms,fallback)=>{
+    const i=h.findIndex(x=>terms.some(t=>x.includes(t)));
+    return i>=0?i:fallback;
+  };
+
+  if(type==='operator'){
+    const idI=idx(['operator id','operatorid','id'],0);
+    const nameI=idx(['operator name','name'],1);
+    const opI=idx(['operation name','operation'],2);
+    const samI=idx(['sam'],3);
+    const effI=idx(['efficiency','eff'],4);
+
+    operators=rows.slice(1).map(r=>({
+      id:r[idI]||r[0],
+      name:r[nameI]||r[1],
+      op:r[opI]||r[2],
+      sam:Number(String(r[samI]||r[3]||'0').replace('%',''))||0,
+      eff:Number(String(r[effI]||r[4]||'0').replace('%',''))||0
+    })).filter(x=>x.id);
+
+    document.querySelector('#operatorTable tbody').innerHTML=operators.map(x=>
+      `<tr><td>${x.id}</td><td>${x.name}</td><td>${x.op}</td><td>${x.sam}</td><td>${x.eff}%</td><td><button class=\"danger\" style=\"padding:4px 7px\" onclick=\"deleteOperator(${JSON.stringify(String(x.id))})\">DELETE</button></td></tr>`
+    ).join('');
+
+    renderOperatorTable(); autoSave(); alert(`Operator Skill imported: ${operators.length} operator records.`);
+  }else{
+    const idI=idx(['operator id','operatorid','id'],0);
+    const pI=idx(['present','attendance','status'],1);
+
+    attendanceTotal=new Set();
+    present=new Set();
+    absent=new Set();
+
+    rows.slice(1).forEach(r=>{
+      const id=(r[idI]||r[0]).trim();
+      if(!id)return;
+      attendanceTotal.add(id);
+      const value=String(r[pI]||r[1]||'').trim().toLowerCase();
+      if(/^(yes|y|present|p|1|true|available)$/i.test(value)) present.add(id);
+      else absent.add(id);
+    });
+
+    renderAttendance(); autoSave();
+  }
+}
+
+function renderAttendance(){
+  const total=attendanceTotal.size;
+  const p=present.size;
+  const a=absent.size;
+
+  document.getElementById('attendanceStats').innerHTML=
+    `<div class="stat">TOTAL OPERATORS<b>${total}</b></div>
+     <div class="stat">PRESENT<b>${p}</b></div>
+     <div class="stat">ABSENT<b>${a}</b></div>
+     <div class="stat">PRESENT %<b>${total?Math.round(p/total*100):0}%</b></div>`;
+
+  document.getElementById('presentList').innerHTML=
+    `<b>Present Operators (${p}):</b> ${[...present].join(', ')||'None'}`;
+
+  document.getElementById('absentList').innerHTML=
+    `<b>Absent Operators (${a}):</b> ${[...absent].join(', ')||'None'}`;
+  drawDashboard();
+}
+
+
+function drawDashboard(bottle={},report=[]){
+  syncLowestOperatorLineEfficiency();
+  const stats=document.getElementById('stats');
+  if(!stats)return;
+  const active=activeLines();
+  // Always use the latest Auto Balance report when available. This prevents
+  // the dashboard KPI cards from resetting to zero when another screen
+  // refreshes the dashboard without explicitly passing the report.
+  if(!report.length && lastLineReport.length) report=lastLineReport;
+  const data=report.length ? report : active.map(l=>({
+    line:l.id,
+    style:(styles[l.style]&&styles[l.style].style)||'-',
+    required:0,allocated:0,shortage:0,targetQty:0,hourlyQty:0,dailyQty:0,
+    eff:Number(l.eff)||0,balance:0
+  }));
+  const avg=data.length?Math.round(data.reduce((a,r)=>a+(Number(r.eff)||0),0)/data.length):0;
+  const totalPresent=attendanceTotal.size?present.size:operators.length;
+  const totalRequired=data.reduce((a,r)=>a+(Number(r.required)||0),0);
+  const totalAllocated=data.reduce((a,r)=>a+(Number(r.allocated)||0),0);
+  const totalShortage=data.reduce((a,r)=>a+(Number(r.shortage)||0),0);
+  const extra=Math.max(0,totalPresent-totalAllocated);
+  const balance=totalRequired?Math.round(totalAllocated/totalRequired*100):0;
+  stats.innerHTML=`
+    <div class="stat">LINES<b>${active.length}</b></div>
+    <div class="stat">PRESENT<b>${totalPresent}</b></div>
+    <div class="stat">REQUIRED<b>${totalRequired}</b></div>
+    <div class="stat">ALLOCATED<b>${totalAllocated}</b></div>
+    <div class="stat">EXTRA<b>${extra}</b></div>
+    <div class="stat">SHORTAGE<b>${totalShortage}</b></div>
+    <div class="stat">AVG EFFICIENCY<b>${avg}%</b></div>
+    <div class="stat">BALANCE<b>${balance}%</b></div>`;
+
+  // Keep the line-wise report synchronized with the KPI cards.
+  const tb=document.querySelector('#lineReport tbody');
+  if(tb){
+    tb.innerHTML=data.map(r=>`<tr>
+      <td>${r.line}</td><td>${r.style||'-'}</td>
+      <td>${Number(r.required)||0}</td><td>${Number(r.allocated)||0}</td>
+      <td>${Number(r.shortage)||0}</td><td><b>${Number(r.targetQty)||0}</b></td>
+      <td>${Number(r.hourlyQty)||0}</td><td>${Number(r.dailyQty)||0}</td>
+      <td><b>${Number(r.eff)||0}%</b></td><td>${Number(r.balance)||0}%</td>
+    </tr>`).join('')||'<tr><td colspan="10">Run Auto Balance to generate line-wise target.</td></tr>';
+  }
+
+  const acc=document.getElementById('lineAccordion');
+  if(acc){
+    acc.innerHTML=data.length ? data.map((r,i)=>`
+      <div class="line-item" data-line-index="${i}">
+        <button type="button" class="line-head" onclick="toggleLineDetails(${i})">
+          <span><span class="line-title">Line ${r.line}</span><br><span class="line-mini">${r.style||'-'} · Efficiency ${Number(r.eff)||0}% · Target ${Number(r.targetQty)||0}</span></span>
+          <span class="arrow">▼</span>
+        </button>
+        <div class="line-details"><div class="line-grid">
+          <div class="line-metric"><span>Required</span><b>${Number(r.required)||0}</b></div>
+          <div class="line-metric"><span>Allocated</span><b>${Number(r.allocated)||0}</b></div>
+          <div class="line-metric"><span>Shortage</span><b>${Number(r.shortage)||0}</b></div>
+          <div class="line-metric"><span>Balance %</span><b>${Number(r.balance)||0}%</b></div>
+          <div class="line-metric"><span>Auto Target Qty</span><b>${Number(r.targetQty)||0}</b></div>
+          <div class="line-metric"><span>Estimated / Hour</span><b>${Number(r.hourlyQty)||0}</b></div>
+          <div class="line-metric"><span>Estimated / Day</span><b>${Number(r.dailyQty)||0}</b></div>
+          <div class="line-metric"><span>Line Efficiency</span><b>${Number(r.eff)||0}%</b></div>
+          <div class="line-metric"><span>Lowest Capacity Operator</span><b>${r.lowCapacityOperator||'-'}</b></div>
+          <div class="line-metric"><span>Bottleneck Operation</span><b>${r.bottleneckOperation||'-'}</b></div>
+        </div></div>
+      </div>`).join('') : '<div class="small">Run Auto Balance to generate line-wise target.</div>';
+  }
+
+  const c=document.getElementById('effChart');
+  if(!c)return;
+  const ctx=c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.font='14px Arial'; ctx.fillStyle='#17202a'; ctx.fillText('Line Efficiency %',20,20);
+  const base=235,max=100,bw=Math.min(90,(c.width-80)/Math.max(data.length,1)-15);
+  const colors=['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#14b8a6'];
+  data.forEach((r,i)=>{
+    const x=55+i*(bw+15),h=Math.min(180,(Number(r.eff)||0)/max*180);
+    ctx.fillStyle=colors[i%colors.length];ctx.fillRect(x,base-h,bw,h);
+    ctx.strokeStyle='#334155';ctx.strokeRect(x,base-180,bw,180);
+    ctx.fillStyle='#17202a';ctx.fillText('Line '+r.line,x,255);
+    ctx.fillText((Number(r.eff)||0)+'%',x+10,base-h-8);
+  });
+}
+function drawBottleneck(bottle={}){
+  lastBottleData=bottle||{};
+  const rows=Array.isArray(lastAllocation)?lastAllocation:[];
+  const opMap={}, lineMap={};
+  rows.forEach(r=>{
+    const line=String(r.line??'');
+    const op=String(r.operation??'Unknown');
+    const key=line+'|'+op;
+    const eff=Number(r.eff)||0, sam=Number(r.sam)||0;
+    if(!opMap[key]) opMap[key]={line,operation:op,sam:0,effs:[],count:0,operators:[]};
+    opMap[key].sam+=sam; opMap[key].effs.push(eff); opMap[key].count++;
+    opMap[key].operators.push({id:r.operatorId||'',name:r.operatorName||'',eff,sam});
+    if(!lineMap[line]) lineMap[line]={line,sam:0,effs:[],count:0,ops:{}};
+    lineMap[line].sam+=sam; lineMap[line].effs.push(eff); lineMap[line].count++;
+    lineMap[line].ops[op]=lineMap[line].ops[op]||{count:0,effs:[],sam:0};
+    lineMap[line].ops[op].count++; lineMap[line].ops[op].effs.push(eff); lineMap[line].ops[op].sam+=sam;
+  });
+  const details=Object.values(opMap).map(x=>{
+    const eff=x.effs.length?x.effs.reduce((a,b)=>a+b,0)/x.effs.length:0;
+    const load=x.sam*(100/Math.max(eff,1));
+    return {...x,eff:Math.round(eff),load};
+  }).sort((a,b)=>b.load-a.load);
+  const lineRows=Object.values(lineMap).map(x=>{
+    const eff=x.effs.length?x.effs.reduce((a,b)=>a+b,0)/x.effs.length:0;
+    const top=Object.entries(x.ops).map(([operation,v])=>({operation,load:v.sam*(100/Math.max(v.effs.reduce((a,b)=>a+b,0)/Math.max(v.effs.length,1),1))})).sort((a,b)=>b.load-a.load)[0];
+    return {line:x.line,operators:x.count,sam:x.sam,eff:Math.round(eff),topOperation:top?.operation||'-',topLoad:top?.load||0};
+  }).sort((a,b)=>b.topLoad-a.topLoad);
+  const operatorRows=rows.slice().sort((a,b)=>(Number(a.eff)||0)-(Number(b.eff)||0)||(Number(b.sam)||0)-(Number(a.sam)||0));
+  const top=details[0];
+  const critical=operatorRows.filter(r=>(Number(r.eff)||0)<70).length;
+  const warning=operatorRows.filter(r=>{const e=Number(r.eff)||0;return e>=70&&e<85}).length;
+  const normal=operatorRows.filter(r=>(Number(r.eff)||0)>=85).length;
+  const affectedLines=new Set(operatorRows.filter(r=>(Number(r.eff)||0)<85).map(r=>String(r.line))).size;
+  const bottleEl=document.getElementById('bottleText');
+  bottleEl.innerHTML=`
+    <div class="bottle-kpis">
+      <div class="bottle-kpi bk-red"><small>🔴 CRITICAL BOTTLENECK</small><strong>${critical}</strong><span>operators below 70%</span></div>
+      <div class="bottle-kpi bk-orange"><small>🟠 WARNING</small><strong>${warning}</strong><span>operators 70–84%</span></div>
+      <div class="bottle-kpi bk-green"><small>🟢 NORMAL</small><strong>${normal}</strong><span>operators 85%+</span></div>
+      <div class="bottle-kpi bk-blue"><small>🏭 AFFECTED LINES</small><strong>${affectedLines}</strong><span>lines needing attention</span></div>
+    </div>
+    <div class="bottle-topgrid">
+      <div class="bottle-highlight"><span>TOP LINE</span><b>${lineRows[0]?`Line ${lineRows[0].line}`:'-'}</b><small>${lineRows[0]?lineRows[0].topOperation:'Run Auto Balance'}</small></div>
+      <div class="bottle-highlight"><span>BOTTLENECK OPERATION</span><b>${top?top.operation:'-'}</b><small>${top?`Line ${top.line} • Load ${Math.round(top.load)}`:'No allocation data'}</small></div>
+      <div class="bottle-highlight"><span>OPERATOR COUNT</span><b>${top?top.count:0}</b><small>operators on top bottleneck</small></div>
+      <div class="bottle-highlight"><span>AVG EFFICIENCY</span><b>${top?top.eff:0}%</b><small>top bottleneck average</small></div>
+    </div>
+    <h3>📍 LINE-WISE BOTTLENECK</h3>
+    <div class="bottle-line-grid">${lineRows.length?lineRows.map(r=>{
+      const status=r.eff<70?'critical':r.eff<85?'warning':'normal';
+      const icon=status==='critical'?'🔴':status==='warning'?'🟠':'🟢';
+      return `<div class="bottle-line-card"><div class="bottle-line-head"><b>Line ${r.line}</b><span>${icon} ${r.eff}%</span></div><div class="bottle-op">${r.topOperation}</div><div class="bottle-mini"><i style="width:${Math.min(100,Math.max(4,100-r.eff))}%"></i></div><small>${r.operators} operators • Total SAM ${r.sam.toFixed(2)}</small></div>`;
+    }).join(''):'<div class="empty-state">Run Auto Balance to calculate line-wise bottlenecks.</div>'}</div>
+    <h3>👷 OPERATOR-WISE BOTTLENECK</h3>
+    <div class="tablewrap"><table class="bottle-table"><thead><tr><th>Line</th><th>Operator ID</th><th>Operator</th><th>Operation</th><th>SAM</th><th>Efficiency</th><th>Risk</th></tr></thead><tbody>
+    ${operatorRows.length?operatorRows.map(r=>{const e=Number(r.eff)||0;const risk=e<70?'🔴 CRITICAL':e<85?'🟠 WARNING':'🟢 NORMAL';return `<tr><td>Line ${r.line}</td><td><b>${r.operatorId}</b></td><td>${r.operatorName}</td><td>${r.operation}</td><td>${Number(r.sam||0).toFixed(2)}</td><td><b>${e}%</b></td><td>${risk}</td></tr>`;}).join(''):'<tr><td colspan="7">No operator allocation data. Run Auto Balance.</td></tr>'}
+    </tbody></table></div>
+    <h3>⚙️ OPERATION BOTTLENECK RANKING</h3>
+    <div class="bottle-ranking">${details.slice(0,10).map((r,i)=>{const pct=Math.min(100,Math.max(5,(r.load/(details[0]?.load||1))*100));const risk=r.eff<70?'critical':r.eff<85?'warning':'normal';return `<div class="rank-row"><div class="rank-label"><b>#${i+1} ${r.operation}</b><span>Line ${r.line} • ${r.eff}%</span></div><div class="rank-track"><i class="${risk}" style="width:${pct}%"></i></div><strong>${Math.round(r.load)}</strong></div>`;}).join('')||'<div class="empty-state">No bottleneck data available.</div>'}</div>
+    <div class="bottle-action">💡 <b>Recommended action:</b> ${top?`Check <b>Line ${top.line} → ${top.operation}</b>. If the operation remains below target, move/add a skilled operator or rebalance adjacent operations.`:'Run Auto Balance first to generate recommendations.'}</div>`;
+  const c=document.getElementById('bottleChart'),ctx=c.getContext('2d');
+  const topOps=details.slice(0,8); c.height=Math.max(300,Math.min(520,120+topOps.length*45)); ctx.clearRect(0,0,c.width,c.height);
+  ctx.font='bold 14px Arial';ctx.fillStyle='#17202a';ctx.fillText('Top Bottleneck Operations — higher load = worse',20,24);
+  const left=175,right=65,topY=48,rowH=34,maxLoad=topOps[0]?.load||1;
+  topOps.forEach((r,i)=>{const y=topY+i*rowH,w=Math.max(8,(c.width-left-right-20)*(r.load/maxLoad));const color=r.eff<70?'#ef4444':r.eff<85?'#f59e0b':'#22c55e';ctx.fillStyle='#64748b';ctx.font='12px Arial';let label=r.operation.length>22?r.operation.slice(0,21)+'…':r.operation;ctx.fillText(`L${r.line} • ${label}`,12,y+16);ctx.fillStyle='#e5e7eb';ctx.fillRect(left,y,Math.max(10,c.width-left-right),20);ctx.fillStyle=color;ctx.fillRect(left,y,w,20);ctx.fillStyle='#17202a';ctx.font='bold 12px Arial';ctx.fillText(String(Math.round(r.load)),left+w+7,y+15);});
+}
+
+document.getElementById('resetConfirmPass').addEventListener('keydown',e=>{if(e.key==='Enter')resetPassword();});
+document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+// Always show the login screen when the app starts, so FORGOT PASSWORD / RESET PASSWORD is accessible.
+currentUser='';
+localStorage.removeItem('lineBalancingCurrentUser');
+document.getElementById('loginScreen').style.display='flex';
+
+</script>
+
+<script>
+(function(){
+  function norm(v){return String(v||'').trim().toLowerCase();}
+  window.showExtraOperatorRecommendation = function(lineName, operationName){
+    const root = document.getElementById('extraOperatorRecommendation');
+    if(!root) return;
+    const alloc = Array.isArray(window.lastAllocation) ? window.lastAllocation : [];
+    const ops = Array.isArray(window.operators) ? window.operators : [];
+    const line = String(lineName||'');
+    const opn = String(operationName||'');
+    const used = new Set(alloc.map(x=>String(x.operatorId||x.id||'')));
+    const candidates = ops.filter(o=>{
+      const oid=String(o.operatorId||o.id||'');
+      const oop=String(o.operation||o.op||'');
+      return oid && !used.has(oid) && norm(oop)===norm(opn);
+    }).sort((a,b)=>(Number(b.efficiency||b.eff||0)-Number(a.efficiency||a.eff||0)));
+
+    root.innerHTML = '<div class="extra-op-recommend"><h3>💡 Extra Operator Recommendation</h3>' +
+      '<div><b>Line:</b> '+line+' &nbsp; <b>Low-capacity Operation:</b> '+opn+'</div>' +
+      '<div style="margin-top:6px">Line capacity is low because of <b>'+opn+'</b>. Add an extra skilled operator from the available manpower below:</div>' +
+      (candidates.length ? candidates.slice(0,5).map(o=>{
+        const id=String(o.operatorId||o.id||'');
+        const nm=String(o.name||o.operatorName||'');
+        const ef=Number(o.efficiency||o.eff||0);
+        return '<div class="extra-op-card"><span><b>'+id+'</b> - '+nm+
+          '</span><span>Operation: <b>'+opn+'</b></span><span>Efficiency: <b>'+ef.toFixed(1)+'%</b></span>'+
+          '<button onclick="window.addRecommendedOperator && window.addRecommendedOperator(\''+
+          id.replace(/'/g,"\\'")+'\',\''+line.replace(/'/g,"\\'")+'\',\''+opn.replace(/'/g,"\\'")+'\')">➕ ADD TO LINE</button></div>';
+      }).join('') :
+      '<div class="extra-op-card"><b>No extra skilled operator available for this operation.</b></div>') +
+      '</div>';
+  };
+
+  window.addRecommendedOperator = function(operatorId,lineName,operationName){
+    // Try existing app add functions, preserving whichever implementation the build has.
+    if(typeof window.addOperatorToLine === 'function'){
+      window.addOperatorToLine(operatorId,lineName,operationName);
+    } else if(typeof window.addExtraOperator === 'function'){
+      window.addExtraOperator(operatorId,lineName,operationName);
+    } else {
+      alert('Recommended: add Operator '+operatorId+' to '+lineName+' for '+operationName+'.');
+    }
+    if(typeof window.drawBottleneck === 'function') window.drawBottleneck();
+    if(typeof window.drawDashboard === 'function') window.drawDashboard();
+    if(typeof window.render === 'function') window.render();
+  };
+
+  // Public API for the bottleneck/line-capacity code to call.
+  window.indicateLowCapacityOperation = function(lineName,operationName){
+    window.showExtraOperatorRecommendation(lineName,operationName);
+  };
+})();
+</script>
+
+<script>
+(function(){
+function initCompactSections(){
+ const cards=[...document.querySelectorAll('.card')].filter(c=>{const h=c.querySelector(':scope > h2'); return h && /^\s*[1-4]\.\s/.test(h.textContent);});
+ cards.forEach((card,idx)=>{
+   if(card.dataset.compactReady)return;
+   const h=card.querySelector(':scope > h2');
+   const body=document.createElement('div'); body.className='compact-body';
+   const head=document.createElement('button'); head.type='button'; head.className='compact-section-head';
+   const title=h.textContent; head.innerHTML='<span>'+title+'</span><span class="compact-arrow">▼</span>';
+   const nodes=[...card.children].filter(n=>n!==h); nodes.forEach(n=>body.appendChild(n));
+   h.replaceWith(head); card.appendChild(body); card.classList.add('compact-section'); card.dataset.compactReady='1';
+   head.addEventListener('click',()=>{
+     const willOpen=!card.classList.contains('open');
+     document.querySelectorAll('.compact-section').forEach(x=>x.classList.remove('open'));
+     if(willOpen)card.classList.add('open');
+   });
+ });
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initCompactSections);else initCompactSections();
+window.initCompactSections=initCompactSections;
+})();
+</script>
+</body>
+</html>
