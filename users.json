@@ -1,0 +1,5 @@
+{
+  "admin":{"password":"admin123","role":"admin"},
+  "line01":{"password":"line01","role":"supervisor","line":1},
+  "mechanicmgr":{"password":"mech123","role":"mechanic_manager"}
+}

@@ -154,7 +154,52 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <button class="navbtn" id="navMain" onclick="showScreen('main')">🏭 LINE BALANCING</button>
 <button class="navbtn" id="navEff" onclick="showScreen('efficiency')">📊 PRODUCTION & EFFICIENCY</button>
 <button class="navbtn" id="navBottle" onclick="showScreen('bottleneck')">🚦 BOTTLENECK</button>
+<button class="navbtn" id="navContacts" onclick="showScreen('contacts')">📲 SEND & CONTACTS</button>
+<button class="navbtn" id="navBreakdown" onclick="showScreen('breakdown')">🛠️ LINE BREAKDOWN</button>
+<button class="navbtn" id="navEod" onclick="showScreen('eod')">📋 SUPERVISOR EOD</button><button class="navbtn" id="navMechanic" onclick="showScreen('mechanic')">🔧 MECHANIC MANAGEMENT</button>
 </div>
+<div id="contactsScreen" class="app-screen">
+<div class="hero"><h1>📲 Supervisor & Management SEND</h1><p>Register line supervisors and management staff. After Auto Balance, SEND opens WhatsApp with the correct current allocation link.</p></div>
+<div class="card"><h2>👤 LINE SUPERVISORS</h2><div class="production-form"><div class="three"><select id="contactLine"><option value="">SELECT LINE</option></select><input id="supervisorName" placeholder="Supervisor Name"><input id="supervisorMobile" placeholder="Mobile Number"></div><button class="green" onclick="saveSupervisorContact()" style="margin-top:10px">SAVE SUPERVISOR</button></div><div id="supervisorContactList" style="margin-top:12px"></div></div>
+<div class="card"><h2>🏢 MANAGEMENT STAFF</h2><div class="production-form"><div class="three"><input id="managerName" placeholder="Management Staff Name"><input id="managerDesignation" placeholder="Designation (FM / QM / IE / Manager)"><input id="managerMobile" placeholder="Mobile Number"></div><button class="green" onclick="saveManagementContact()" style="margin-top:10px">SAVE MANAGEMENT STAFF</button></div><div id="managementContactList" style="margin-top:12px"></div></div>
+<div class="card"><h2>🚀 SEND CURRENT ALLOCATION</h2><p class="small">No Copy / Share button. SEND only. Supervisor receives only their line; management receives all current line allocations.</p><div id="sendAllocationList"></div></div>
+</div>
+
+<div id="breakdownScreen" class="app-screen">
+<div class="hero"><h1>🛠️ LINE BREAKDOWN</h1><p>Supervisor can record line stoppage / operation breakdown and send the latest breakdown details to management.</p></div>
+<div class="card"><h2>📝 REPORT LINE BREAKDOWN</h2>
+<div class="production-form"><div class="three">
+<select id="breakLine"><option value="">SELECT LINE</option></select>
+<input id="breakOperation" placeholder="Operation / Machine">
+<select id="breakReason"><option value="">BREAKDOWN REASON</option><option>Machine Breakdown</option><option>Needle / Thread Issue</option><option>Electrical Problem</option><option>Quality Problem</option><option>Manpower Shortage</option><option>Material Not Available</option><option>Other</option></select>
+<input id="breakStart" type="datetime-local" placeholder="Start Time">
+<input id="breakEnd" type="datetime-local" placeholder="End Time">
+<input id="breakMinutes" type="number" min="0" placeholder="Downtime Minutes">
+<input id="breakAction" placeholder="Action Taken / Remarks">
+<select id="breakStatus"><option>OPEN</option><option>IN PROGRESS</option><option>CLOSED</option></select>
+</div><button class="green" onclick="saveBreakdown()" style="margin-top:10px">SAVE BREAKDOWN</button></div>
+</div>
+<div class="card"><h2>📋 BREAKDOWN HISTORY</h2><div id="breakdownList"></div></div>
+<div class="card"><h2>📲 SEND BREAKDOWN</h2><p class="small">SEND sends the selected/latest breakdown details to registered management staff through WhatsApp.</p><div id="breakdownSendList"></div></div>
+</div>
+
+<div id="eodScreen" class="app-screen">
+<div class="hero"><h1>📋 SUPERVISOR END-OF-DAY REPORT</h1><p>Supervisor manually enters actual production and gets line-wise Target vs Actual, Manpower, SAM, Efficiency, Breakdown and overall EOD performance.</p></div>
+<div class="card"><h2>📝 MANUAL ACTUAL PRODUCTION ENTRY</h2>
+<div class="production-form"><div class="three">
+<label>Date<input id="eodDate" type="date"></label>
+<select id="eodLine"><option value="">SELECT LINE</option></select>
+<input id="eodActual" type="number" min="0" placeholder="Actual Production Qty">
+<input id="eodManpower" type="number" min="0" placeholder="Actual Manpower on Line">
+<input id="eodSam" type="number" min="0" step="0.01" placeholder="SAM on Line (optional)">
+<input id="eodHours" type="number" min="0" step="0.5" placeholder="Working Hours">
+</div><button class="green" onclick="saveEodEntry()" style="margin-top:10px">💾 SAVE ACTUAL PRODUCTION</button></div>
+<p class="small" style="margin-top:8px">If SAM is left blank, the app calculates average SAM from the current line allocation. Efficiency = Actual Qty × SAM ÷ (Manpower × Working Hours × 60) × 100.</p>
+</div>
+<div class="card"><div class="section-title"><h2>📊 END-OF-DAY OVERALL REPORT</h2><div><button class="primary" onclick="downloadEodReport()">📥 DOWNLOAD EOD EXCEL</button><button class="green" onclick="sendEodToManagement()">📲 SEND EOD</button></div></div><div class="stats" id="eodStats"></div><div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Line</th><th>Target</th><th>Actual</th><th>Achievement</th><th>Manpower</th><th>SAM</th><th>Efficiency</th><th>Breakdown</th><th>Downtime Min</th></tr></thead><tbody id="eodTable"></tbody></table></div></div>
+<div class="card"><h2>📈 LINE-WISE EOD DETAILS</h2><div id="eodDetails"></div></div>
+</div>
+
 <div id="homeScreen" class="app-screen active">
   <div class="hero"><h1>🏭 Production Control Center</h1><p>Line balancing • manpower • production • efficiency • bottleneck monitoring</p></div>
   <div class="quickgrid">
@@ -341,6 +386,10 @@ let styles=[], operators=[], present=new Set(), absent=new Set(), attendanceTota
 let orders=[], production=[];
 let lastAllocation=[];
 let allocationHistory=[];
+let supervisorContacts=[];
+let managementContacts=[];
+let breakdowns=[];
+let eodEntries=[];
 let currentUser='';
 const DEFAULT_USERS={admin:'admin123',line01:'line01',line02:'line02',line03:'line03'};
 let USERS=JSON.parse(localStorage.getItem('lineBalancingUsers')||'null')||DEFAULT_USERS;
@@ -425,7 +474,7 @@ function saveUserData(){
     present:[...present],
     absent:[...absent],
     attendanceTotal:[...attendanceTotal],
-    lines, orders, production, lastLineReport, lastAllocation, lastBottleData, allocationHistory
+    lines, orders, production, lastLineReport, lastAllocation, lastBottleData, allocationHistory, supervisorContacts, managementContacts, breakdowns
   }));
 }
 
@@ -444,14 +493,19 @@ function loadUserData(){
       lastLineReport=Array.isArray(d.lastLineReport)?d.lastLineReport:[];
       lastAllocation=Array.isArray(d.lastAllocation)?d.lastAllocation:[];
       allocationHistory=Array.isArray(d.allocationHistory)?d.allocationHistory:[];
+      supervisorContacts=Array.isArray(d.supervisorContacts)?d.supervisorContacts:[];
+      managementContacts=Array.isArray(d.managementContacts)?d.managementContacts:[];
+      breakdowns=Array.isArray(d.breakdowns)?d.breakdowns:[];
+      eodEntries=Array.isArray(d.eodEntries)?d.eodEntries:[];
       lastBottleData=d.lastBottleData||{};
     }catch(e){ resetUserData(); }
   }else{
-    styles=[];operators=[];present=new Set();absent=new Set();attendanceTotal=new Set();lines=[];orders=[];production=[];lastLineReport=[];lastAllocation=[];lastBottleData={};allocationHistory=[];
+    styles=[];operators=[];present=new Set();absent=new Set();attendanceTotal=new Set();lines=[];orders=[];production=[];lastLineReport=[];lastAllocation=[];lastBottleData={};allocationHistory=[];supervisorContacts=[];managementContacts=[];breakdowns=[];eodEntries=[];
     addLine();
     saveUserData();
   }
   refreshStyles();
+  refreshContactLineSelect(); renderContacts(); renderSendAllocation();
   renderOperatorTable();
   renderAttendance(); autoSave();
   refreshLines();
@@ -517,16 +571,20 @@ function addOperatorManual(){
 }
 function showScreen(name){
  document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active'));
- const map={home:'homeScreen',orders:'ordersScreen',main:'mainScreen',efficiency:'efficiencyScreen',bottleneck:'bottleneckScreen'};
+ const map={home:'homeScreen',orders:'ordersScreen',main:'mainScreen',efficiency:'efficiencyScreen',bottleneck:'bottleneckScreen',contacts:'contactsScreen',breakdown:'breakdownScreen',eod:'eodScreen',mechanic:'mechanicScreen'};
  document.getElementById(map[name]||'homeScreen').classList.add('active');
  document.querySelectorAll('.navbtn').forEach(x=>x.classList.remove('active'));
- const nav={home:'navHome',orders:'navOrder',main:'navMain',efficiency:'navEff',bottleneck:'navBottle'};
+ const nav={home:'navHome',orders:'navOrder',main:'navMain',efficiency:'navEff',bottleneck:'navBottle',contacts:'navContacts',breakdown:'navBreakdown',eod:'navEod',mechanic:'navMechanic'};
  document.getElementById(nav[name]||'navHome').classList.add('active');
  if(name==='home'){drawHome();renderSuperBoard();}
  if(name==='main'){refreshAllocationControls();renderAllocationTable();}
  if(name==='orders'){refreshOrderLineSelect();renderOrders();}
  if(name==='efficiency'){drawDashboard();renderProduction();drawProductionChart();}
  if(name==='bottleneck') drawBottleneck(lastBottleData||{});
+ if(name==='contacts'){refreshContactLineSelect();renderContacts();renderSendAllocation();}
+ if(name==='breakdown'){refreshBreakdownLineSelect();renderBreakdowns();renderBreakdownSend();}
+ if(name==='mechanic'){renderMechanicManager();renderMechanicAssignments();renderMechanicBreakdownQueue();}
+ if(name==='eod'){refreshEodLineSelect();renderEodReport();}
 }
 let lastBottleData={};
 let lastLineReport=[];
@@ -1097,6 +1155,52 @@ function downloadDashboardCSV(){
  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Line_Balancing_Report.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
+function refreshEodLineSelect(){
+ const s=document.getElementById('eodLine'); if(!s)return; const old=s.value; s.innerHTML='<option value="">SELECT LINE</option>'+lines.map(l=>`<option value="${l.id}">Line ${l.id}</option>`).join(''); if(old)s.value=old;
+ const d=document.getElementById('eodDate'); if(d&&!d.value)d.value=document.getElementById('allocationDate')?.value||todayISO();
+ const h=document.getElementById('eodHours'); if(h&&!h.value)h.value=document.getElementById('workingHours')?.value||8;
+}
+function lineAvgSam(lineId){
+ const rows=(lastAllocation||[]).filter(r=>String(r.line)===String(lineId)&&Number(r.sam)>0);
+ if(!rows.length)return 0;
+ return Math.round((rows.reduce((a,r)=>a+Number(r.sam||0),0)/rows.length)*100)/100;
+}
+function lineTarget(lineId){
+ const r=(lastLineReport||[]).find(x=>String(x.line)===String(lineId));
+ return Number(r?.targetQty||0)||Number(lines.find(l=>String(l.id)===String(lineId))?.target||0)||0;
+}
+function lineBreakdownMinutes(lineId,date){return (breakdowns||[]).filter(b=>String(b.line)===String(lineId)&&(!date||String(b.date||'').slice(0,10)===String(date))).reduce((a,b)=>a+(Number(b.minutes)||0),0);}
+function saveEodEntry(){
+ const line=document.getElementById('eodLine').value, date=document.getElementById('eodDate').value||todayISO(), actual=Number(document.getElementById('eodActual').value), manpower=Number(document.getElementById('eodManpower').value), hours=Number(document.getElementById('eodHours').value)||Number(document.getElementById('workingHours')?.value||8), samInput=Number(document.getElementById('eodSam').value);
+ if(!line)return alert('Select Line.'); if(!Number.isFinite(actual)||actual<0)return alert('Enter Actual Production Qty.'); if(!Number.isFinite(manpower)||manpower<0)return alert('Enter Manpower.');
+ const sam=samInput>0?samInput:lineAvgSam(line); const target=lineTarget(line); const eff=(sam&&manpower&&hours)?Math.round(actual*sam/(manpower*hours*60)*100):0;
+ const idx=eodEntries.findIndex(x=>String(x.line)===String(line)&&String(x.date)===String(date)); const row={id:idx>=0?eodEntries[idx].id:Date.now(),date,line,actual,target,manpower,sam,hours,eff};
+ if(idx>=0)eodEntries[idx]=row;else eodEntries.push(row);
+ // Also feed the existing production dashboard with the manual EOD quantity as a daily entry.
+ production=production.filter(p=>!(p.eodEntryId===row.id)); production.push({id:Date.now()+1,eodEntryId:row.id,line,hour:'EOD',target,actual,eff});
+ autoSave(); renderEodReport(); renderProduction(); drawProductionChart(); drawHome();
+ alert('✅ EOD actual production saved.');
+}
+function getEodRows(){
+ const date=document.getElementById('eodDate')?.value||todayISO();
+ return lines.map(l=>{const r=eodEntries.find(x=>String(x.line)===String(l.id)&&String(x.date)===String(date)); const target=lineTarget(l.id); const actual=r?Number(r.actual):production.filter(p=>String(p.line)===String(l.id)&&!p.eodEntryId).reduce((a,p)=>a+Number(p.actual||0),0); const manpower=r?Number(r.manpower):((lastAllocation||[]).filter(x=>String(x.line)===String(l.id)).length); const sam=r?Number(r.sam):lineAvgSam(l.id); const hours=r?Number(r.hours):Number(document.getElementById('workingHours')?.value||8); const eff=(r?.eff!=null?Number(r.eff):(sam&&manpower&&hours?Math.round(actual*sam/(manpower*hours*60)*100):0)); const bd=(breakdowns||[]).filter(b=>String(b.line)===String(l.id)&&String(b.date||'').slice(0,10)===String(date)); return {line:l.id,target,actual,achievement:target?Math.round(actual/target*100):0,manpower,sam,eff,breakdowns:bd.length,downtime:bd.reduce((a,b)=>a+Number(b.minutes||0),0),style:l.style!==''&&styles[l.style]?styles[l.style].style:'-'};});
+}
+function renderEodReport(){
+ refreshEodLineSelect(); const rows=getEodRows(); const totalT=rows.reduce((a,r)=>a+r.target,0), totalA=rows.reduce((a,r)=>a+r.actual,0), totalM=rows.reduce((a,r)=>a+r.manpower,0), totalDown=rows.reduce((a,r)=>a+r.downtime,0), avgEff=rows.length?Math.round(rows.reduce((a,r)=>a+r.eff,0)/rows.length):0;
+ const st=document.getElementById('eodStats'); if(st)st.innerHTML=`<div class="stat">TARGET<b>${totalT}</b></div><div class="stat">ACTUAL<b>${totalA}</b></div><div class="stat">ACHIEVEMENT<b>${totalT?Math.round(totalA/totalT*100):0}%</b></div><div class="stat">MANPOWER<b>${totalM}</b></div><div class="stat">AVG EFF<b>${avgEff}%</b></div><div class="stat">DOWNTIME<b>${totalDown} min</b></div>`;
+ const tb=document.getElementById('eodTable'); if(tb)tb.innerHTML=rows.map(r=>`<tr><td>Line ${r.line}</td><td>${r.target}</td><td><b>${r.actual}</b></td><td>${r.achievement}%</td><td>${r.manpower}</td><td>${r.sam}</td><td><b>${r.eff}%</b></td><td>${r.breakdowns}</td><td>${r.downtime}</td></tr>`).join('')||'<tr><td colspan="9">No lines.</td></tr>';
+ const det=document.getElementById('eodDetails'); if(det)det.innerHTML=rows.map(r=>`<div class="production-form" style="margin-bottom:8px"><b>Line ${r.line}</b> — ${r.style} | Target ${r.target} | Actual ${r.actual} | Manpower ${r.manpower} | SAM ${r.sam} | Efficiency ${r.eff}% | Breakdown ${r.breakdowns} (${r.downtime} min)</div>`).join('');
+}
+function eodMessage(){
+ const date=document.getElementById('eodDate')?.value||todayISO(), rows=getEodRows(); const totalT=rows.reduce((a,r)=>a+r.target,0),totalA=rows.reduce((a,r)=>a+r.actual,0),totalD=rows.reduce((a,r)=>a+r.downtime,0); let msg=`LINE EOD REPORT\nDate: ${date}\n\n`; rows.forEach(r=>msg+=`Line ${r.line}: Target ${r.target} | Actual ${r.actual} | Ach ${r.achievement}% | MP ${r.manpower} | SAM ${r.sam} | Eff ${r.eff}% | BD ${r.breakdowns} / ${r.downtime} min\n`); msg+=`\nOVERALL: Target ${totalT} | Actual ${totalA} | Achievement ${totalT?Math.round(totalA/totalT*100):0}% | Breakdown Downtime ${totalD} min`; return msg;
+}
+function sendEodToManagement(){
+ const msg=eodMessage(); if(!managementContacts.length)return alert('No management contacts registered.'); managementContacts.forEach((m,i)=>{setTimeout(()=>sendWhatsApp(m.mobile,msg),i*500);});
+}
+function downloadEodReport(){
+ if(typeof XLSX==='undefined')return alert('Excel library not loaded.'); const rows=getEodRows(),date=document.getElementById('eodDate')?.value||todayISO(); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.map(r=>({Date:date,Line:r.line,Style:r.style,Target:r.target,Actual:r.actual,Achievement:r.achievement+'%',Manpower:r.manpower,SAM:r.sam,'Efficiency %':r.eff,Breakdowns:r.breakdowns,'Downtime Min':r.downtime}))), 'EOD Report'); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((breakdowns||[]).filter(b=>String(b.date||'').slice(0,10)===String(date)).map(b=>({...b}))), 'Breakdown'); XLSX.writeFile(wb,'Line_Supervisor_EOD_Report_'+date+'.xlsx');
+}
+
 function exportProductionReport(){ downloadOverallReport(); }
 
 function downloadOverallReport(){
@@ -1127,6 +1231,8 @@ function downloadOverallReport(){
  add('Lines',lines.map(l=>({Line:l.id,Style:l.style!==''&&styles[l.style]?styles[l.style].style:'',Status:l.status||'',Target:l.target||0,'Efficiency %':l.eff||0,'Auto Target Qty':l.autoTargetQty||0,'Est./Hour':l.hourlyQty||0,'Est./Day':l.dailyQty||0})));
  add('Orders',orders.map(o=>({...o,Balance:Math.max(0,(Number(o.qty)||0)-(Number(o.produced)||0))})));
  add('Production',production.map(p=>({...p,Achievement:p.target?Math.round((Number(p.actual)||0)/Number(p.target)*100):0})));
+ const eodRows=getEodRows(); add('EOD Report',eodRows.map(r=>({Date:document.getElementById('eodDate')?.value||todayISO(),Line:r.line,Style:r.style,Target:r.target,Actual:r.actual,Achievement:r.achievement+'%',Manpower:r.manpower,SAM:r.sam,'Efficiency %':r.eff,Breakdowns:r.breakdowns,'Downtime Min':r.downtime})));
+ add('Breakdown History',breakdowns||[]);
  add('Bottleneck',Object.entries(lastBottleData||{}).map(([operation,load])=>({Operation:operation,Load:load})));
  const improvement=(lastAllocation||[]).map(r=>{const eff=Number(r.eff)||0; const gap=Math.max(0,85-eff); const priority=eff<70?'Critical':eff<85?'Development':'Good'; const action=eff<60?'Skill training + method study':eff<70?'Re-training + close supervision':eff<85?'Coaching + method improvement':'Maintain & cross-train'; return {Line:r.line,'Operator ID':r.operatorId,Name:r.operatorName,Operation:r.operation,SAM:r.sam,'Efficiency %':eff,'Gap to 85%':gap,Priority,Recommended_Action:action};});
  add('Improvement',improvement);
@@ -1530,6 +1636,99 @@ document.getElementById('loginScreen').style.display='flex';
 </script>
 
 <script>
+// LINE BREAKDOWN WORKFLOW
+function refreshBreakdownLineSelect(){
+ const s=document.getElementById('breakLine'); if(!s)return; const old=s.value;
+ s.innerHTML='<option value="">SELECT LINE</option>'+lines.map(l=>'<option value="'+l.id+'">LINE '+l.id+'</option>').join('');
+ if([...s.options].some(o=>o.value===old))s.value=old;
+}
+function calcBreakMinutes(){
+ const a=document.getElementById('breakStart')?.value,b=document.getElementById('breakEnd')?.value;
+ if(a&&b){const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000)); if(!Number.isNaN(m))document.getElementById('breakMinutes').value=m;}
+}
+function saveBreakdown(){
+ calcBreakMinutes();
+ const line=document.getElementById('breakLine')?.value, operation=document.getElementById('breakOperation')?.value.trim(), reason=document.getElementById('breakReason')?.value;
+ const start=document.getElementById('breakStart')?.value,end=document.getElementById('breakEnd')?.value,minutes=Number(document.getElementById('breakMinutes')?.value||0),action=document.getElementById('breakAction')?.value.trim(),status=document.getElementById('breakStatus')?.value||'OPEN';
+ if(!line||!operation||!reason)return alert('Enter Line, Operation / Machine and Breakdown Reason.');
+ breakdowns.push({id:Date.now(),date:todayISO(),line:Number(line),operation,reason,start,end,minutes,action,status,reportedBy:currentUser||'Supervisor'});
+ autoSave(); renderBreakdowns(); renderBreakdownSend();
+ ['breakOperation','breakReason','breakStart','breakEnd','breakMinutes','breakAction'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+ document.getElementById('breakStatus').value='OPEN';
+ alert('✅ Line breakdown saved.');
+}
+function deleteBreakdown(id){if(!confirm('Delete this breakdown record?'))return; breakdowns=breakdowns.filter(x=>String(x.id)!==String(id));autoSave();renderBreakdowns();renderBreakdownSend();}
+function breakdownText(item){
+ if(!item)return 'LINE BREAKDOWN\nNo breakdown record available.';
+ return 'LINE BALANCING APP\nLINE BREAKDOWN REPORT\nDate: '+(item.date||todayISO())+'\nLine: '+item.line+'\nOperation / Machine: '+item.operation+'\nReason: '+item.reason+'\nStart: '+(item.start||'-')+'\nEnd: '+(item.end||'-')+'\nDowntime: '+(item.minutes||0)+' min\nStatus: '+(item.status||'-')+'\nAction / Remarks: '+(item.action||'-')+'\nReported By: '+(item.reportedBy||'-');
+}
+function sendBreakdownWhatsApp(mobile,item){sendWhatsApp(mobile,breakdownText(item));}
+function renderBreakdowns(){
+ const root=document.getElementById('breakdownList'); if(!root)return;
+ const rows=[...(breakdowns||[])].sort((a,b)=>Number(b.id)-Number(a.id));
+ root.innerHTML=rows.length?'<div class="tablewrap"><table><thead><tr><th>Date</th><th>Line</th><th>Operation / Machine</th><th>Reason</th><th>Downtime</th><th>Status</th><th>Action</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+x.date+'</td><td>Line '+x.line+'</td><td>'+x.operation+'</td><td>'+x.reason+'</td><td>'+Number(x.minutes||0)+' min</td><td>'+x.status+'</td><td><button class="danger" style="padding:4px 7px" onclick="deleteBreakdown('+x.id+')">DELETE</button></td></tr>').join('')+'</tbody></table></div>':'<div class="small">No breakdown records.</div>';
+}
+function renderBreakdownSend(){
+ const root=document.getElementById('breakdownSendList'); if(!root)return;
+ const latest=(breakdowns||[]).slice().sort((a,b)=>Number(b.id)-Number(a.id))[0];
+ if(!latest){root.innerHTML='<div class="small">No breakdown available to send.</div>';return;}
+ const mg=(managementContacts||[]).map(x=>'<div class="linebox"><b>'+x.designation+'</b> — '+x.name+' <span class="muted">'+x.mobile+'</span><button class="green" style="float:right" onclick="sendBreakdownWhatsApp(\''+x.mobile+'\',breakdowns.find(b=>String(b.id)===\''+latest.id+'\'))">SEND</button><div class="small" style="margin-top:8px">Latest: Line '+latest.line+' • '+latest.operation+' • '+latest.status+'</div></div>').join('');
+ root.innerHTML=mg||'<div class="small">No management contacts registered. Add them in SEND & CONTACTS.</div>';
+}
+document.addEventListener('change',function(e){if(e.target&&['breakStart','breakEnd'].includes(e.target.id))calcBreakMinutes();});
+</script>
+
+<script>
+// CONTACT + SEND WORKFLOW
+function normalizeMobile(v){return String(v||'').replace(/\D/g,'');}
+function refreshContactLineSelect(){
+ const s=document.getElementById('contactLine'); if(!s)return; const old=s.value; s.innerHTML='<option value="">SELECT LINE</option>'+lines.map(l=>'<option value="'+l.id+'">LINE '+l.id+'</option>').join(''); if([...s.options].some(o=>o.value===old))s.value=old;
+}
+function saveSupervisorContact(){
+ const line=document.getElementById('contactLine')?.value, name=document.getElementById('supervisorName')?.value.trim(), mobile=normalizeMobile(document.getElementById('supervisorMobile')?.value);
+ if(!line||!name||!mobile)return alert('Enter Line, Supervisor Name and Mobile Number.');
+ supervisorContacts=supervisorContacts.filter(x=>String(x.line)!==String(line)); supervisorContacts.push({line:Number(line),name,mobile}); autoSave(); renderContacts(); renderSendAllocation();
+ ['supervisorName','supervisorMobile'].forEach(id=>document.getElementById(id).value='');
+}
+function saveManagementContact(){
+ const name=document.getElementById('managerName')?.value.trim(), designation=document.getElementById('managerDesignation')?.value.trim(), mobile=normalizeMobile(document.getElementById('managerMobile')?.value);
+ if(!name||!designation||!mobile)return alert('Enter Name, Designation and Mobile Number.');
+ managementContacts.push({name,designation,mobile}); autoSave(); renderContacts(); renderSendAllocation();
+ ['managerName','managerDesignation','managerMobile'].forEach(id=>document.getElementById(id).value='');
+}
+function deleteSupervisorContact(line){supervisorContacts=supervisorContacts.filter(x=>String(x.line)!==String(line));autoSave();renderContacts();renderSendAllocation();}
+function deleteManagementContact(idx){managementContacts.splice(idx,1);autoSave();renderContacts();renderSendAllocation();}
+function renderContacts(){
+ const a=document.getElementById('supervisorContactList'),b=document.getElementById('managementContactList'); if(a)a.innerHTML=supervisorContacts.length?'<div class="tablewrap"><table><thead><tr><th>Line</th><th>Supervisor</th><th>Mobile</th><th>Action</th></tr></thead><tbody>'+supervisorContacts.map(x=>'<tr><td>Line '+x.line+'</td><td>'+x.name+'</td><td>'+x.mobile+'</td><td><button class="danger" onclick="deleteSupervisorContact('+x.line+')">DELETE</button></td></tr>').join('')+'</tbody></table></div>':'<div class="small">No supervisors registered.</div>';
+ if(b)b.innerHTML=managementContacts.length?'<div class="tablewrap"><table><thead><tr><th>Name</th><th>Designation</th><th>Mobile</th><th>Action</th></tr></thead><tbody>'+managementContacts.map((x,i)=>'<tr><td>'+x.name+'</td><td>'+x.designation+'</td><td>'+x.mobile+'</td><td><button class="danger" onclick="deleteManagementContact('+i+')">DELETE</button></td></tr>').join('')+'</tbody></table></div>':'<div class="small">No management staff registered.</div>';
+}
+function allocationLinkForCurrentUser(line){
+ const base=window.location.href.split('#')[0];
+ const token=encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify({line:line||'ALL',date:document.getElementById('allocationDate')?.value||todayISO()})))));
+ return base+'#allocation='+token;
+}
+function allocationMessage(line){
+ const date=document.getElementById('allocationDate')?.value||todayISO();
+ const rows=(lastAllocation||[]).filter(r=>line==null||String(r.line)===String(line));
+ let text='LINE BALANCING APP\nAllocation Date: '+date+'\n';
+ if(line!=null)text+='Line: '+line+'\n';
+ if(!rows.length)text+='No current allocation available.';
+ else rows.forEach(r=>{text+='\nLine '+r.line+' | '+r.style+' | '+r.operatorId+' - '+r.operatorName+' | '+r.operation+' | Eff '+r.eff+'%';});
+ text+='\n\nOpen current allocation: '+allocationLinkForCurrentUser(line);
+ return text;
+}
+function sendWhatsApp(mobile,text){
+ const m=normalizeMobile(mobile); if(!m)return; window.open('https://wa.me/'+m+'?text='+encodeURIComponent(text),'_blank');
+}
+function renderSendAllocation(){
+ const root=document.getElementById('sendAllocationList'); if(!root)return;
+ const su=supervisorContacts.map(x=>'<div class="linebox"><b>LINE '+x.line+'</b> — '+x.name+' <span class="muted">'+x.mobile+'</span><button class="green" style="float:right" onclick="sendWhatsApp(\''+x.mobile+'\',allocationMessage('+x.line+'))">SEND</button><div class="small" style="margin-top:8px">Only Line '+x.line+' allocation will be included.</div></div>').join('');
+ const mg=managementContacts.map((x,i)=>'<div class="linebox"><b>'+x.designation+'</b> — '+x.name+' <span class="muted">'+x.mobile+'</span><button class="green" style="float:right" onclick="sendWhatsApp(\''+x.mobile+'\',allocationMessage(null))">SEND</button><div class="small" style="margin-top:8px">Full current allocation for all lines.</div></div>').join('');
+ root.innerHTML=(su||'<div class="small">No supervisor contacts registered.</div>')+'<hr style="margin:14px 0;border:0;border-top:1px solid #ddd">'+(mg||'<div class="small">No management contacts registered.</div>');
+}
+</script>
+
+<script>
 (function(){
 function initCompactSections(){
  const cards=[...document.querySelectorAll('.card')].filter(c=>{const h=c.querySelector(':scope > h2'); return h && /^\s*[1-4]\.\s/.test(h.textContent);});
@@ -1550,6 +1749,70 @@ function initCompactSections(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initCompactSections);else initCompactSections();
 window.initCompactSections=initCompactSections;
+})();
+</script>
+
+
+<section id="mechanicScreen" class="app-screen">
+<div class="hero"><h1>🔧 MECHANIC MANAGEMENT</h1><p>Mechanic Manager controls mechanic master, line responsibility, attendance/status and automatic breakdown routing.</p></div>
+<div class="card"><h2>📊 MECHANIC MANAGER DASHBOARD</h2><div class="three"><div class="linebox"><b id="mmTotal">0</b><br><span class="small">TOTAL MECHANICS</span></div><div class="linebox"><b id="mmAvailable">0</b><br><span class="small">AVAILABLE</span></div><div class="linebox"><b id="mmBusy">0</b><br><span class="small">BUSY / OPEN JOB</span></div></div><div style="margin-top:10px"><button class="primary" onclick="sendMechanicManagerSummary()">📲 SEND MANAGER SUMMARY</button></div></div>
+<div class="card"><h2>👨‍🔧 MECHANIC MANAGER</h2>
+<div class="production-form"><div class="three">
+<input id="mmName" placeholder="Mechanic Manager Name">
+<input id="mmUserId" placeholder="Admin User ID">
+<input id="mmPassword" type="password" placeholder="Password">
+<input id="mmMobile" placeholder="WhatsApp Mobile Number">
+</div><button class="green" onclick="saveMechanicManager()" style="margin-top:10px">SAVE MECHANIC MANAGER</button></div>
+<div id="mechanicManagerCard" style="margin-top:12px"></div></div>
+<div class="card"><h2>👨‍🔧 MECHANIC MASTER</h2>
+<div class="production-form"><div class="three">
+<input id="mechName" placeholder="Mechanic First Name">
+<input id="mechId" placeholder="Mechanic ID Number">
+<input id="mechMobile" placeholder="Mechanic WhatsApp Number">
+<input id="mechPassword" type="password" placeholder="Mechanic Password (optional)">
+<select id="mechAttendance"><option>PRESENT</option><option>ABSENT</option></select>
+<select id="mechStatus"><option>AVAILABLE</option><option>BUSY</option><option>OFF</option></select>
+</div><button class="green" onclick="saveMechanic()" style="margin-top:10px">SAVE MECHANIC</button></div>
+<div id="mechanicMasterList" style="margin-top:12px"></div></div>
+<div class="card"><h2>📍 LINE → MECHANIC RESPONSIBILITY</h2><p class="small">Manager selects a mechanic, enters a Line From and Line To range (for example 1 to 4), and saves the responsibility. If a mechanic is already BUSY, the next mechanic request shows <b>ALREADY BOOKED / OVERLOAD</b> and alerts the Mechanic Manager.</p>
+<div class="production-form"><div class="three"><select id="assignMechanic"></select><input id="assignLineFrom" type="number" min="1" placeholder="LINE FROM (e.g. 1)"><input id="assignLineTo" type="number" min="1" placeholder="LINE TO (e.g. 4)"></div><div class="three" style="margin-top:10px"><input id="assignWhatsApp" placeholder="Mechanic WhatsApp Number"><select id="assignAttendance"><option>ACTIVE</option><option>INACTIVE</option></select><button class="green" onclick="saveMechanicAssignment()">SAVE LINE RESPONSIBILITY</button></div></div>
+<div id="mechanicAssignmentList" style="margin-top:12px"></div></div>
+<div class="card"><h2>🚨 OPEN MECHANIC BREAKDOWNS</h2><div id="mechanicBreakdownQueue"></div></div>
+<div class="card"><h2>📲 MECHANIC MANAGER ALERT</h2><p class="small">When an assigned mechanic is already booked/busy, the Manager gets a WhatsApp alert asking for another mechanic allocation.</p><div id="mechanicAlertInfo"></div></div>
+</section>
+<script>
+(function(){
+const mmKey=()=> 'mechanicManager_'+(window.currentUser||'admin');
+const mkKey=()=> 'mechanics_'+(window.currentUser||'admin');
+const maKey=()=> 'mechanicAssignments_'+(window.currentUser||'admin');
+window.mechanicManager=JSON.parse(localStorage.getItem(mmKey())||'null');
+window.mechanics=JSON.parse(localStorage.getItem(mkKey())||'[]');
+window.mechanicAssignments=JSON.parse(localStorage.getItem(maKey())||'[]');
+function saveAll(){localStorage.setItem(mmKey(),JSON.stringify(window.mechanicManager||null));localStorage.setItem(mkKey(),JSON.stringify(window.mechanics||[]));localStorage.setItem(maKey(),JSON.stringify(window.mechanicAssignments||[]));}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+window.saveMechanicManager=function(){const name=document.getElementById('mmName').value.trim(),uid=document.getElementById('mmUserId').value.trim(),pw=document.getElementById('mmPassword').value,mob=normalizeMobile(document.getElementById('mmMobile').value);if(!name||!uid||!pw||!mob)return alert('Enter Manager Name, User ID, Password and WhatsApp Number.');window.mechanicManager={name,userId:uid,password:pw,mobile:mob};saveAll();renderMechanicManager();alert('✅ Mechanic Manager saved.');};
+window.saveMechanic=function(){const name=document.getElementById('mechName').value.trim(),id=document.getElementById('mechId').value.trim(),mobile=normalizeMobile(document.getElementById('mechMobile').value),password=document.getElementById('mechPassword').value,attendance=document.getElementById('mechAttendance').value,status=document.getElementById('mechStatus').value;if(!name||!id||!mobile)return alert('Enter Mechanic First Name, ID and WhatsApp Number.');const i=window.mechanics.findIndex(x=>x.id.toLowerCase()===id.toLowerCase());const obj={id,name,mobile,password,attendance,status,updatedAt:new Date().toISOString()};if(i>=0)window.mechanics[i]=obj;else window.mechanics.push(obj);saveAll();renderMechanicManager();renderMechanicAssignments();['mechName','mechId','mechMobile','mechPassword'].forEach(x=>document.getElementById(x).value='');};
+window.deleteMechanic=function(id){window.mechanics=window.mechanics.filter(x=>x.id!==id);window.mechanicAssignments=window.mechanicAssignments.filter(x=>x.mechanicId!==id);saveAll();renderMechanicManager();renderMechanicAssignments();};
+function lineIds(){return (window.lines||[]).map(l=>String(l.id));}
+window.renderMechanicManager=function(){const total=document.getElementById('mmTotal'),av=document.getElementById('mmAvailable'),bu=document.getElementById('mmBusy');if(total)total.textContent=window.mechanics.length;if(av)av.textContent=window.mechanics.filter(x=>String(x.status).toUpperCase()==='AVAILABLE'&&String(x.attendance).toUpperCase()==='PRESENT').length;if(bu)bu.textContent=window.mechanics.filter(x=>String(x.status).toUpperCase()==='BUSY').length;const c=document.getElementById('mechanicManagerCard'),m=window.mechanicManager;if(c)c.innerHTML=m?'<div class="linebox"><b>'+esc(m.name)+'</b> • User ID: '+esc(m.userId)+' • WhatsApp: '+esc(m.mobile)+'</div>':'<div class="small">No Mechanic Manager registered.</div>';const b=document.getElementById('mechanicMasterList');if(b)b.innerHTML=window.mechanics.length?'<div class="tablewrap"><table><thead><tr><th>Name</th><th>ID</th><th>WhatsApp</th><th>Attendance</th><th>Status</th><th>Lines</th><th>Action</th></tr></thead><tbody>'+window.mechanics.map(x=>{const ls=window.mechanicAssignments.filter(a=>a.mechanicId===x.id).map(a=>'1'===String(a.from)&&String(a.from)===String(a.to)?'Line '+a.from:'Line '+a.from+'-'+a.to).join(', ');return '<tr><td>'+esc(x.name)+'</td><td>'+esc(x.id)+'</td><td>'+esc(x.mobile)+'</td><td>'+esc(x.attendance)+'</td><td>'+esc(x.status)+'</td><td>'+esc(ls||'-')+'</td><td><button class="danger" onclick="deleteMechanic(\''+esc(x.id)+'\')">DELETE</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="small">No mechanics registered.</div>';const s=document.getElementById('assignMechanic');if(s)s.innerHTML='<option value="">SELECT MECHANIC</option>'+window.mechanics.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+' — '+esc(x.id)+'</option>').join('');}
+window.renderMechanicAssignments=function(){const b=document.getElementById('mechanicAssignmentList');if(!b)return;b.innerHTML=window.mechanicAssignments.length?'<div class="tablewrap"><table><thead><tr><th>Lines</th><th>Mechanic</th><th>ID</th><th>WhatsApp</th><th>Status</th><th>Attendance</th><th>Action</th></tr></thead><tbody>'+window.mechanicAssignments.map((a,i)=>{const m=window.mechanics.find(x=>x.id===a.mechanicId)||{};return '<tr><td>Line '+a.from+' to '+a.to+'</td><td>'+esc(m.name||a.mechanicId)+'</td><td>'+esc(a.mechanicId)+'</td><td>'+esc(m.mobile||'-')+'</td><td>'+esc(m.status||'-')+'</td><td>'+esc(m.attendance||'-')+'</td><td><button class="danger" onclick="deleteMechanicAssignment('+i+')">DELETE</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="small">No line responsibility assigned.</div>';}
+window.saveMechanicAssignment=function(){const id=document.getElementById('assignMechanic').value,from=Number(document.getElementById('assignLineFrom').value),to=Number(document.getElementById('assignLineTo').value);if(!id||!from||!to||from>to)return alert('Select Mechanic and valid Line From / Line To.');const conflict=window.mechanicAssignments.find(a=>Math.max(Number(a.from),from)<=Math.min(Number(a.to),to)&&a.mechanicId!==id);if(conflict){const old=window.mechanics.find(x=>x.id===conflict.mechanicId);if(old&&old.status==='BUSY'){alert('⚠️ ALREADY BOOKED / OVERLOAD. Allocate another mechanic.');notifyManagerOverload(from+'-'+to,old);return;}}window.mechanicAssignments=window.mechanicAssignments.filter(a=>!(Math.max(Number(a.from),from)<=Math.min(Number(a.to),to)));window.mechanicAssignments.push({from,to,mechanicId:id,assignedAt:new Date().toISOString()});saveAll();renderMechanicManager();renderMechanicAssignments();alert('✅ Line responsibility saved: Line '+from+' to Line '+to);};
+window.deleteMechanicAssignment=function(i){window.mechanicAssignments.splice(i,1);saveAll();renderMechanicManager();renderMechanicAssignments();};
+window.findMechanicForLine=function(line){const n=Number(line);return window.mechanicAssignments.find(a=>n>=Number(a.from)&&n<=Number(a.to));};
+window.notifyMechanicForBreakdown=function(item){const a=findMechanicForLine(item.line),m=a&&window.mechanics.find(x=>x.id===a.mechanicId);if(!m){if(window.mechanicManager)sendWhatsApp(window.mechanicManager.mobile, 'MECHANIC ALLOCATION REQUIRED\nLine '+item.line+'\nOperation: '+item.operation+'\nProblem: '+item.reason+'\nNo mechanic is assigned. Please allocate a mechanic.');return;}const busy=m.status==='BUSY'||m.attendance==='ABSENT'||m.attendance==='OFF';const base='LINE BREAKDOWN - MECHANIC ATTEND\nLine: '+item.line+'\nOperation: '+item.operation+'\nProblem: '+item.reason+'\nBreakdown ID: '+item.id+'\nStatus: '+item.status+'\n';const link=window.location.href.split('#')[0]+'#mechanic-breakdown='+encodeURIComponent(btoa(JSON.stringify({id:item.id,line:item.line})));if(busy){sendWhatsApp(window.mechanicManager?.mobile||'', '⚠️ ALREADY BOOKED / OVERLOAD\nLine '+item.line+' needs mechanic. Assigned mechanic: '+m.name+' ('+m.id+') is '+m.status+'/'+m.attendance+'.\nPlease allocate another mechanic.\n'+base);document.getElementById('mechanicAlertInfo').innerHTML='<div class="linebox">⚠️ <b>OVERLOAD</b> — Line '+item.line+' assigned mechanic '+esc(m.name)+' is '+esc(m.status)+' / '+esc(m.attendance)+'. Manager WhatsApp alert prepared.</div>';return;}sendWhatsApp(m.mobile,base+'Open & attend: '+link);if(window.mechanicManager)sendWhatsApp(window.mechanicManager.mobile, 'MECHANIC BREAKDOWN INTIMATION\n'+base+'Assigned Mechanic: '+m.name+' ('+m.id+')\n'+link);m.status='BUSY';saveAll();renderMechanicManager();};
+window.sendMechanicManagerSummary=function(){if(!window.mechanicManager||!window.mechanicManager.mobile)return alert('Save Mechanic Manager WhatsApp number first.');const open=(window.breakdowns||[]).filter(x=>!['CLOSED','FINAL CLOSED'].includes(String(x.status||'').toUpperCase()));const busy=window.mechanics.filter(x=>String(x.status).toUpperCase()==='BUSY');const lines=window.mechanicAssignments.map(a=>{const m=window.mechanics.find(x=>x.id===a.mechanicId);return 'Line '+a.from+'-'+a.to+': '+(m?m.name+' ('+m.id+')':'NOT ASSIGNED');}).join('\n')||'No line responsibility';const msg='MECHANIC MANAGER SUMMARY\nDate: '+new Date().toLocaleString()+'\nTotal Mechanics: '+window.mechanics.length+'\nAvailable: '+window.mechanics.filter(x=>String(x.status).toUpperCase()==='AVAILABLE').length+'\nBusy: '+busy.length+'\nOpen Breakdowns: '+open.length+'\n\nLINE RESPONSIBILITY\n'+lines;sendWhatsApp(window.mechanicManager.mobile,msg);};
+window.notifyManagerOverload=function(line,m){if(!window.mechanicManager)return;sendWhatsApp(window.mechanicManager.mobile,'⚠️ MECHANIC OVERLOAD / ALREADY BOOKED\nLine '+line+'\nAssigned mechanic: '+m.name+' ('+m.id+')\nStatus: '+m.status+'\nPlease allocate another mechanic.');};
+window.renderMechanicBreakdownQueue=function(){const b=document.getElementById('mechanicBreakdownQueue');if(!b)return;const open=(window.breakdowns||[]).filter(x=>['OPEN','IN PROGRESS'].includes(String(x.status||'').toUpperCase()));b.innerHTML=open.length?'<div class="tablewrap"><table><thead><tr><th>ID</th><th>Line</th><th>Operation</th><th>Problem</th><th>Status</th><th>Mechanic</th></tr></thead><tbody>'+open.map(x=>{const a=findMechanicForLine(x.line),m=a&&window.mechanics.find(y=>y.id===a.mechanicId);return '<tr><td>'+x.id+'</td><td>Line '+x.line+'</td><td>'+esc(x.operation)+'</td><td>'+esc(x.reason)+'</td><td>'+esc(x.status)+'</td><td>'+esc(m?m.name+' ('+m.id+')':'NOT ASSIGNED')+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="small">No open mechanic breakdowns.</div>';};
+})();
+</script>
+
+<script>
+(function(){
+function handleMechanicHash(){const h=location.hash||'';if(!h.startsWith('#mechanic-breakdown='))return;try{const o=JSON.parse(atob(decodeURIComponent(h.split('=')[1]))),b=(window.breakdowns||[]).find(x=>String(x.id)===String(o.id));if(!b)return;let box=document.getElementById('mechanicActionOverlay');if(!box){box=document.createElement('div');box.id='mechanicActionOverlay';box.style='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px';document.body.appendChild(box);}box.innerHTML='<div style="background:#fff;max-width:520px;width:100%;border-radius:16px;padding:20px"><h2>🔧 MECHANIC BREAKDOWN</h2><p><b>Line:</b> '+b.line+'</p><p><b>Operation:</b> '+b.operation+'</p><p><b>Problem:</b> '+b.reason+'</p><p><b>Status:</b> '+b.status+'</p><p><b>Breakdown ID:</b> '+b.id+'</p><button class="green" style="width:100%;margin-top:8px" onclick="mechanicAttendFromLink('+b.id+')">ATTEND / TAKE RESPONSIBILITY</button><button class="primary" style="width:100%;margin-top:8px" onclick="mechanicCloseFromLink('+b.id+')">CLEAR / CLOSE BREAKDOWN</button><button class="ghost" style="width:100%;margin-top:8px" onclick="supervisorConfirmBreakdownClose('+b.id+')">SUPERVISOR CONFIRM FINAL CLOSE</button></div>';}catch(e){}}
+window.mechanicAttendFromLink=function(id){const b=(window.breakdowns||[]).find(x=>String(x.id)===String(id));if(!b)return; b.status='IN PROGRESS';b.mechanicAttendedAt=new Date().toISOString();if(window.autoSave)window.autoSave();alert('✅ Breakdown marked IN PROGRESS.');handleMechanicHash();};
+window.mechanicCloseFromLink=function(id){const b=(window.breakdowns||[]).find(x=>String(x.id)===String(id));if(!b)return;b.status='MECHANIC CLEARED';b.mechanicClosedAt=new Date().toISOString();if(window.autoSave)window.autoSave();const a=window.findMechanicForLine&&window.findMechanicForLine(b.line),m=a&&window.mechanics.find(x=>x.id===a.mechanicId);if(m){m.status='AVAILABLE';localStorage.setItem('mechanics_'+(window.currentUser||'admin'),JSON.stringify(window.mechanics));}const s=(window.supervisorContacts||[]).find(x=>String(x.line)===String(b.line));if(s)sendWhatsApp(s.mobile,'🔔 SUPERVISOR CONFIRMATION REQUIRED\nLine '+b.line+'\nOperation: '+b.operation+'\nProblem: '+b.reason+'\nMechanic: '+(m?m.name:'-')+'\nMechanic cleared at: '+new Date().toLocaleString()+'\nPlease confirm CLOSE.');if(window.mechanicManager)sendWhatsApp(window.mechanicManager.mobile,'✅ MECHANIC CLEARED - SUPERVISOR CONFIRMATION PENDING\nLine '+b.line+'\nOperation: '+b.operation+'\nProblem: '+b.reason+'\nMechanic: '+(m?m.name:'-'));alert('✅ Mechanic cleared. Supervisor confirmation is now pending.');handleMechanicHash();};
+window.supervisorConfirmBreakdownClose=function(id){const b=(window.breakdowns||[]).find(x=>String(x.id)===String(id));if(!b)return;b.status='CLOSED';b.supervisorConfirmedAt=new Date().toISOString();if(window.autoSave)window.autoSave();if(window.renderBreakdowns)window.renderBreakdowns();if(window.renderMechanicBreakdownQueue)window.renderMechanicBreakdownQueue();if(window.mechanicManager)sendWhatsApp(window.mechanicManager.mobile,'✅ BREAKDOWN FINAL CLOSED\nLine '+b.line+'\nOperation: '+b.operation+'\nProblem: '+b.reason+'\nSupervisor confirmed close.');alert('✅ Breakdown FINAL CLOSED.');handleMechanicHash();};
+window.addEventListener('hashchange',handleMechanicHash);setTimeout(handleMechanicHash,300);
 })();
 </script>
 </body>
