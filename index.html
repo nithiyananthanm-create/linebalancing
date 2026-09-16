@@ -150,6 +150,7 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <div class="container"><div class="small" id="currentUser"></div>
 <div class="navbar">
 <button class="navbtn active" id="navHome" onclick="showScreen('home')">🏠 DASHBOARD</button>
+<button class="navbtn" id="navProfile" onclick="showScreen('profile')">👤 MY PROFILE</button>
 <button class="navbtn" id="navOrder" onclick="showScreen('orders')">📦 ORDER PLAN</button>
 <button class="navbtn" id="navMain" onclick="showScreen('main')">🏭 LINE BALANCING</button>
 <button class="navbtn" id="navEff" onclick="showScreen('efficiency')">📊 PRODUCTION & EFFICIENCY</button>
@@ -200,6 +201,19 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <div class="card"><h2>📈 LINE-WISE EOD DETAILS</h2><div id="eodDetails"></div></div>
 </div>
 
+<div id="profileScreen" class="app-screen">
+<div class="hero"><h1>👤 MY PROFILE</h1><p>Change your login username without changing your line-balancing data.</p></div>
+<div class="card">
+<h2>✏️ CHANGE USERNAME</h2>
+<div class="production-form"><div class="two">
+<div><label class="small">Current Username</label><input id="profileCurrentUser" readonly style="width:100%;margin-top:5px"></div>
+<div><label class="small">New Username</label><input id="profileNewUser" placeholder="Enter new username" style="width:100%;margin-top:5px"></div>
+</div>
+<button class="primary" onclick="changeMyUsername()" style="margin-top:10px">💾 SAVE NEW USERNAME</button>
+<div id="profileMsg" class="small" style="margin-top:10px"></div></div>
+</div>
+</div>
+
 <div id="homeScreen" class="app-screen active">
   <div class="hero"><h1>🏭 Production Control Center</h1><p>Line balancing • manpower • production • efficiency • bottleneck monitoring</p></div>
   <div class="quickgrid">
@@ -229,13 +243,14 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <div class="actionbar"><label style="display:flex;align-items:center;gap:6px;font-weight:700">📅 Allocation Date <input id="allocationDate" type="date" style="width:150px"></label><label style="display:flex;align-items:center;gap:6px;font-weight:700">⏱ Working Hours <input id="workingHours" type="number" min="1" max="24" step="0.5" value="8" style="width:90px" oninput="hoursChanged()"></label><button class="primary" onclick="autoBalance()">⚙️ SMART AUTO BALANCE</button><button class="ghost" onclick="clearBalance()">🧹 CLEAR ALLOCATION</button><button class="ghost" onclick="showScreen('efficiency')">📊 EFFICIENCY</button><button class="ghost" onclick="showScreen('bottleneck')">🚦 BOTTLENECK</button><button class="ghost" onclick="exportProductionReport()">📤 EXPORT REPORT</button><button class="primary" onclick="downloadOverallReport()">📚 DOWNLOAD ALL REPORTS</button></div>
 <div class="card"><div class="section-title"><h2>🎯 Live Line Balance Board</h2><span class="muted">Green = balanced • Orange = warning • Red = shortage</span></div><div id="balanceBoard" class="balance-board"></div></div>
 <div id="userAdmin" class="card" style="display:none">
-<h2>ADMIN — CREATE USER ID</h2>
+<h2>👥 ADMIN — USER MANAGEMENT</h2>
 <div class="row">
 <input id="newUserId" placeholder="New User ID">
 <input id="newUserPass" type="password" placeholder="New Password">
 <button onclick="createUser()">+ CREATE USER</button>
 </div>
-<div id="userList" class="small" style="margin-top:8px"></div>
+<div id="userList" class="small" style="margin-top:10px"></div>
+<div id="userManagementTable" class="tablewrap" style="margin-top:10px"></div>
 </div>
 
 
@@ -393,6 +408,8 @@ let eodEntries=[];
 let currentUser='';
 const DEFAULT_USERS={admin:'admin123',line01:'line01',line02:'line02',line03:'line03'};
 let USERS=JSON.parse(localStorage.getItem('lineBalancingUsers')||'null')||DEFAULT_USERS;
+function userPassword(v){ return (v && typeof v==='object') ? String(v.password||'') : String(v??''); }
+function userRole(v){ return (v && typeof v==='object') ? (v.role||'supervisor') : (v==='admin123'?'admin':'supervisor'); }
 function saveUsers(){
   try{ localStorage.setItem('lineBalancingUsers',JSON.stringify(USERS)); return true; }
   catch(e){ return false; }
@@ -446,7 +463,62 @@ function resetPassword(){
 }
 
 function createUser(){if(currentUser!=='admin')return alert('Admin login required.');const u=document.getElementById('newUserId').value.trim(),p=document.getElementById('newUserPass').value;if(!u||!p)return alert('Enter User ID and Password');if(USERS[u])return alert('User ID already exists.');USERS[u]={password:p,role:'supervisor'};saveUsers();document.getElementById('newUserId').value='';document.getElementById('newUserPass').value='';renderUsers();alert('User created: '+u);}
-function renderUsers(){const el=document.getElementById('userList');if(el)el.textContent='Users: '+Object.keys(USERS).join(', ');}
+function renderUsers(){
+ const keys=Object.keys(USERS);
+ const el=document.getElementById('userList');
+ if(el)el.textContent='Users: '+keys.join(', ');
+ const box=document.getElementById('userManagementTable');
+ if(!box)return;
+ box.innerHTML='<table><thead><tr><th>Username</th><th>Role</th><th>Action</th></tr></thead><tbody>'+keys.map(k=>{
+   const role=userRole(USERS[k]);
+   const isSelf=k.toLowerCase()===String(currentUser).toLowerCase();
+   const del=k.toLowerCase()==='admin'?'ADMIN CANNOT BE DELETED':`<button class="danger" style="padding:6px 9px" onclick="deleteUserAccount(${JSON.stringify(k)})">🗑 DELETE</button>`;
+   return `<tr><td>${escapeHtml(k)}${isSelf?' <span class="chip chip-blue">CURRENT</span>':''}</td><td>${escapeHtml(role)}</td><td>${del}</td></tr>`;
+ }).join('')+'</tbody></table>';
+}
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function changeMyUsername(){
+ if(!currentUser)return;
+ USERS=readUsers();
+ const oldKey=Object.keys(USERS).find(k=>k.toLowerCase()===String(currentUser).toLowerCase())||currentUser;
+ const newName=document.getElementById('profileNewUser').value.trim();
+ const msg=document.getElementById('profileMsg');
+ if(!newName){msg.textContent='Enter a new username.';return;}
+ if(newName.length<3){msg.textContent='Username must be at least 3 characters.';return;}
+ if(!/^[A-Za-z0-9._-]+$/.test(newName)){msg.textContent='Use only letters, numbers, dot, underscore or hyphen.';return;}
+ const existing=Object.keys(USERS).find(k=>k.toLowerCase()===newName.toLowerCase());
+ if(existing && existing!==oldKey){msg.textContent='That username already exists.';return;}
+ if(newName===oldKey){msg.textContent='This is already your username.';return;}
+ // Preserve this user's complete line-balancing data under the new key.
+ try{
+   const oldDataKey='lineBalancingData_'+oldKey, newDataKey='lineBalancingData_'+newName;
+   const data=localStorage.getItem(oldDataKey);
+   if(data!==null)localStorage.setItem(newDataKey,data);
+   if(newDataKey!==oldDataKey)localStorage.removeItem(oldDataKey);
+ }catch(e){}
+ USERS[newName]=USERS[oldKey];
+ delete USERS[oldKey];
+ saveUsers();
+ currentUser=newName;
+ localStorage.setItem('lineBalancingCurrentUser',newName);
+ document.getElementById('currentUser').textContent='Logged in: '+newName;
+ document.getElementById('profileCurrentUser').value=newName;
+ document.getElementById('profileNewUser').value='';
+ msg.textContent='✅ Username changed successfully. Your existing data was kept.';
+ renderUsers();
+}
+function deleteUserAccount(username){
+ if(currentUser!=='admin')return alert('Admin login required.');
+ const key=Object.keys(USERS).find(k=>k.toLowerCase()===String(username).toLowerCase());
+ if(!key)return;
+ if(key.toLowerCase()==='admin')return alert('The admin account cannot be deleted.');
+ if(key.toLowerCase()===String(currentUser).toLowerCase())return alert('The current admin account cannot be deleted while logged in.');
+ if(!confirm('Delete user '+key+'?\n\nThe login account will be deleted. Their saved line-balancing data will also be removed from this device.'))return;
+ delete USERS[key]; saveUsers();
+ try{localStorage.removeItem('lineBalancingData_'+key);}catch(e){}
+ renderUsers();
+ alert('✅ User deleted: '+key);
+}
 
 function todayISO(){ const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
 function initAllocationDate(){ const el=document.getElementById('allocationDate'); if(el && !el.value) el.value=todayISO(); }
@@ -524,13 +596,15 @@ function login(){
   if(!u||!p)return alert('Enter User ID and Password');
   USERS=readUsers();
   const key=Object.keys(USERS).find(k=>k.toLowerCase()===u.toLowerCase());
-  if(!key || USERS[key]!==p)return document.getElementById('loginMsg').textContent='Invalid User ID or Password.';
+  if(!key || userPassword(USERS[key])!==p)return document.getElementById('loginMsg').textContent='Invalid User ID or Password.';
   currentUser=key;
   localStorage.setItem('lineBalancingCurrentUser',u);
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('currentUser').textContent='Logged in: '+u;
   loadUserData();
   initAllocationDate();
+  const ua=document.getElementById('userAdmin'); if(ua) ua.style.display=(currentUser.toLowerCase()==='admin'?'block':'none');
+  renderUsers();
 }
 
 function logout(){
@@ -540,6 +614,7 @@ function logout(){
   document.getElementById('loginUser').value='';
   document.getElementById('loginPass').value='';
   document.getElementById('loginMsg').textContent='';
+  const ua=document.getElementById('userAdmin'); if(ua) ua.style.display='none';
   document.getElementById('loginScreen').style.display='flex';
 }
 
@@ -571,12 +646,14 @@ function addOperatorManual(){
 }
 function showScreen(name){
  document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active'));
- const map={home:'homeScreen',orders:'ordersScreen',main:'mainScreen',efficiency:'efficiencyScreen',bottleneck:'bottleneckScreen',contacts:'contactsScreen',breakdown:'breakdownScreen',eod:'eodScreen',mechanic:'mechanicScreen'};
+ const map={home:'homeScreen',profile:'profileScreen',orders:'ordersScreen',main:'mainScreen',efficiency:'efficiencyScreen',bottleneck:'bottleneckScreen',contacts:'contactsScreen',breakdown:'breakdownScreen',eod:'eodScreen',mechanic:'mechanicScreen'};
  document.getElementById(map[name]||'homeScreen').classList.add('active');
  document.querySelectorAll('.navbtn').forEach(x=>x.classList.remove('active'));
- const nav={home:'navHome',orders:'navOrder',main:'navMain',efficiency:'navEff',bottleneck:'navBottle',contacts:'navContacts',breakdown:'navBreakdown',eod:'navEod',mechanic:'navMechanic'};
+ const nav={home:'navHome',profile:'navProfile',orders:'navOrder',main:'navMain',efficiency:'navEff',bottleneck:'navBottle',contacts:'navContacts',breakdown:'navBreakdown',eod:'navEod',mechanic:'navMechanic'};
  document.getElementById(nav[name]||'navHome').classList.add('active');
  if(name==='home'){drawHome();renderSuperBoard();}
+ if(name==='profile'){document.getElementById('profileCurrentUser').value=currentUser||'';document.getElementById('profileNewUser').value='';document.getElementById('profileMsg').textContent='';}
+
  if(name==='main'){refreshAllocationControls();renderAllocationTable();}
  if(name==='orders'){refreshOrderLineSelect();renderOrders();}
  if(name==='efficiency'){drawDashboard();renderProduction();drawProductionChart();}
@@ -935,7 +1012,7 @@ function createUserFromScreen(){
   const cp=document.getElementById('createConfirmPass').value;
   const role=document.getElementById('createRole').value;
   const au=USERS[admin] ?? USERS[String(admin).toLowerCase()];
-  const adminPass=(typeof au==='object'?au.password:au);
+  const adminPass=userPassword(au);
   if(!au || adminPass!==apass || String(admin).toLowerCase()!=='admin'){document.getElementById('createUserMsg').textContent='Admin ID and password are incorrect.';return;}
   if(!u||!p){document.getElementById('createUserMsg').textContent='Enter username and password.';return;}
   if(p!==cp){document.getElementById('createUserMsg').textContent='Passwords do not match.';return;}
