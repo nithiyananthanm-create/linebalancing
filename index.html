@@ -178,7 +178,7 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <div class="hero"><h1>📲 Supervisor & Management SEND</h1><p>Register line supervisors and management staff. After Auto Balance, SEND opens WhatsApp with the correct current allocation link.</p></div>
 <div class="card"><h2>👤 LINE SUPERVISORS</h2><div class="production-form"><div class="three"><select id="contactLine"><option value="">SELECT LINE</option></select><input id="supervisorName" placeholder="Supervisor Name"><input id="supervisorMobile" placeholder="Mobile Number"></div><button class="green" onclick="saveSupervisorContact()" style="margin-top:10px">SAVE SUPERVISOR</button></div><div id="supervisorContactList" style="margin-top:12px"></div></div>
 <div class="card"><h2>🏢 MANAGEMENT STAFF</h2><div class="production-form"><div class="three"><input id="managerName" placeholder="Management Staff Name"><input id="managerDesignation" placeholder="Designation (FM / QM / IE / Manager)"><input id="managerMobile" placeholder="Mobile Number"></div><button class="green" onclick="saveManagementContact()" style="margin-top:10px">SAVE MANAGEMENT STAFF</button></div><div id="managementContactList" style="margin-top:12px"></div></div>
-<div class="card"><h2>🚀 SEND CURRENT ALLOCATION</h2><p class="small">Use SEND TO ALL to open WhatsApp chats for registered contacts. Individual SEND buttons remain available.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><button class="primary" onclick="sendAllAllocations('supervisors')">📲 SEND TO ALL SUPERVISORS</button><button class="primary" onclick="sendAllAllocations('management')">📲 SEND TO ALL MANAGEMENT</button><button class="green" onclick="sendAllAllocations('all')">📲 SEND TO EVERYONE</button></div><div id="sendAllMsg" class="small"></div><div id="sendAllocationList"></div></div>
+<div class="card"><h2>🚀 SEND CURRENT ALLOCATION</h2><p class="small">Individual SEND is available for each person. Use the common button below to send the current allocation to everyone registered in Supervisor & Management contacts.</p><button class="primary" onclick="sendCurrentAllocationToAll()" style="margin:10px 0">📲 SEND TO ALL</button><div id="sendAllAllocationMsg" class="small" style="margin-bottom:10px"></div><div id="sendAllocationList"></div></div>
 </div>
 
 <div id="breakdownScreen" class="app-screen">
@@ -227,11 +227,17 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <button class="primary" onclick="changeMyUsername()" style="margin-top:10px">💾 SAVE NEW USERNAME</button>
 <div id="profileMsg" class="small" style="margin-top:10px"></div></div>
 </div>
-<div class="card"><h2>🔐 CHANGE MY PASSWORD</h2><div class="production-form"><div class="three">
-<input id="profileOldPass" type="password" placeholder="Current Password">
-<input id="profileNewPass" type="password" placeholder="New Password (min 4 characters)">
-<input id="profileConfirmPass" type="password" placeholder="Confirm New Password">
-</div><button class="green" onclick="changeMyPassword()" style="margin-top:10px">🔒 SAVE NEW PASSWORD</button><div id="passwordMsg" class="small" style="margin-top:10px"></div></div></div>
+<div class="card" style="margin-top:14px">
+<h2>🔑 CHANGE PASSWORD</h2>
+<div class="production-form"><div class="three">
+<div><label class="small">Current Password</label><input id="profileCurrentPass" type="password" placeholder="Current Password" style="width:100%;margin-top:5px"></div>
+<div><label class="small">New Password</label><input id="profileNewPass" type="password" placeholder="New Password" style="width:100%;margin-top:5px"></div>
+<div><label class="small">Confirm New Password</label><input id="profileConfirmPass" type="password" placeholder="Confirm New Password" style="width:100%;margin-top:5px"></div>
+</div>
+<button class="green" onclick="changeMyPassword()" style="margin-top:10px">🔐 CHANGE PASSWORD</button>
+<div id="passwordMsg" class="small" style="margin-top:10px"></div></div>
+</div>
+</div>
 </div>
 
 <div id="homeScreen" class="app-screen active">
@@ -497,6 +503,28 @@ function renderUsers(){
  }).join('')+'</tbody></table>';
 }
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function changeMyPassword(){
+ if(!currentUser)return;
+ USERS=readUsers();
+ const key=Object.keys(USERS).find(k=>k.toLowerCase()===String(currentUser).toLowerCase())||currentUser;
+ const current=document.getElementById('profileCurrentPass').value;
+ const next=document.getElementById('profileNewPass').value;
+ const confirmPass=document.getElementById('profileConfirmPass').value;
+ const msg=document.getElementById('passwordMsg');
+ if(!current||!next||!confirmPass){msg.textContent='Enter current password, new password and confirm password.';return;}
+ if(userPassword(USERS[key])!==current){msg.textContent='Current password is incorrect.';return;}
+ if(next.length<4){msg.textContent='New password must be at least 4 characters.';return;}
+ if(next!==confirmPass){msg.textContent='New passwords do not match.';return;}
+ if(next===current){msg.textContent='New password must be different from current password.';return;}
+ const oldData=USERS[key];
+ USERS[key]=typeof oldData==='object'&&oldData!==null?{...oldData,password:next}:next;
+ if(!saveUsers()){msg.textContent='Unable to save the new password on this device.';USERS[key]=oldData;return;}
+ document.getElementById('profileCurrentPass').value='';
+ document.getElementById('profileNewPass').value='';
+ document.getElementById('profileConfirmPass').value='';
+ msg.textContent='✅ Password changed successfully.';
+}
+
 function changeMyUsername(){
  if(!currentUser)return;
  USERS=readUsers();
@@ -527,19 +555,6 @@ function changeMyUsername(){
  msg.textContent='✅ Username changed successfully. Your existing data was kept.';
  renderUsers();
 }
-function changeMyPassword(){
- if(!currentUser)return alert('Please log in first.');
- USERS=readUsers(); const key=Object.keys(USERS).find(k=>k.toLowerCase()===String(currentUser).toLowerCase());
- const oldP=document.getElementById('profileOldPass').value,newP=document.getElementById('profileNewPass').value,confirmP=document.getElementById('profileConfirmPass').value,msg=document.getElementById('passwordMsg');
- if(!key){msg.textContent='Current user was not found.';return;}
- if(userPassword(USERS[key])!==oldP){msg.textContent='Current password is incorrect.';return;}
- if(newP.length<4){msg.textContent='New password must be at least 4 characters.';return;}
- if(newP!==confirmP){msg.textContent='New passwords do not match.';return;}
- const oldVal=USERS[key]; USERS[key]=(oldVal&&typeof oldVal==='object')?{...oldVal,password:newP}:newP;
- if(!saveUsers()){USERS[key]=oldVal;msg.textContent='Could not save password in this browser.';return;}
- ['profileOldPass','profileNewPass','profileConfirmPass'].forEach(id=>document.getElementById(id).value=''); msg.textContent='✅ Password changed successfully.';
-}
-
 function deleteUserAccount(username){
  if(currentUser!=='admin')return alert('Admin login required.');
  const key=Object.keys(USERS).find(k=>k.toLowerCase()===String(username).toLowerCase());
@@ -685,7 +700,7 @@ function showScreen(name){
  const nav={home:'navHome',profile:'navProfile',orders:'navOrder',main:'navMain',efficiency:'navEff',bottleneck:'navBottle',contacts:'navContacts',breakdown:'navBreakdown',eod:'navEod',mechanic:'navMechanic'};
  document.getElementById(nav[name]||'navHome').classList.add('active');
  if(name==='home'){drawHome();renderSuperBoard();}
- if(name==='profile'){document.getElementById('profileCurrentUser').value=currentUser||'';document.getElementById('profileNewUser').value='';document.getElementById('profileMsg').textContent='';}
+ if(name==='profile'){document.getElementById('profileCurrentUser').value=currentUser||'';document.getElementById('profileNewUser').value='';document.getElementById('profileMsg').textContent='';document.getElementById('profileCurrentPass').value='';document.getElementById('profileNewPass').value='';document.getElementById('profileConfirmPass').value='';document.getElementById('passwordMsg').textContent='';}
 
  if(name==='main'){refreshAllocationControls();renderAllocationTable();}
  if(name==='orders'){refreshOrderLineSelect();renderOrders();}
@@ -872,32 +887,53 @@ function refreshExtraManpowerControls(){
 }
 function buildManpowerRecommendations(){
   const box=document.getElementById('manpowerRecommendations'); if(!box)return;
-  const rows=lastAllocation||[], presentOps=attendanceTotal.size?operators.filter(o=>present.has(o.id)):operators;
-  const used=new Set(rows.map(r=>String(r.operatorId))), extras=presentOps.filter(o=>!used.has(String(o.id)));
+  const rows=lastAllocation||[];
+  const presentOps=attendanceTotal.size?operators.filter(o=>present.has(o.id)):operators;
+  const used=new Set(rows.map(r=>String(r.operatorId)));
+  const extras=presentOps.filter(o=>!used.has(String(o.id)));
+  const hours=Math.max(0,Number(document.getElementById('workingHours')?.value)||8);
   const rec=[];
+
+  function opCapacity(op, lineRows){
+    const sam=Number(op.sam)||0;
+    if(!sam)return 0;
+    const matched=lineRows.filter(r=>operatorCanMatch({op:r.operation,sam:r.sam},op));
+    return matched.reduce((sum,r)=>sum+(60/sam)*(Number(r.eff)||0)/100,0);
+  }
+
   activeLines().forEach(l=>{
-    const st=styles[l.style], lr=rows.filter(r=>String(r.line)===String(l.id));
+    const st=styles[l.style]; if(!st||!Array.isArray(st.ops))return;
+    const lr=rows.filter(r=>String(r.line)===String(l.id));
+    const operationCaps=st.ops.map(op=>({op,cap:opCapacity(op,lr)}));
+    const currentLineHourly=operationCaps.length?Math.min(...operationCaps.map(x=>x.cap)):0;
     st.ops.forEach(op=>{
-      const req=Math.max(1,Math.floor(Number(op.qty)||1));
-      const matched=lr.filter(r=>operatorCanMatch({op:r.operation,sam:r.sam},op)).length;
-      const shortage=Math.max(0,req-matched);
-      if(shortage>0){
-        const candidates=extras.filter(o=>operatorCanMatch(o,op)).sort((a,b)=>(Number(b.eff)||0)-(Number(a.eff)||0));
-        rec.push({line:l,op,shortage,candidates,reason:'SHORTAGE / MISSING SKILL'});
+      const candidates=extras.filter(o=>operatorCanMatch(o,op)).sort((a,b)=>(Number(b.eff)||0)-(Number(a.eff)||0));
+      if(!candidates.length)return;
+      const c=candidates[0];
+      const extraOpHourly=(60/(Number(op.sam)||1))*(Number(c.eff)||0)/100;
+      const projectedOpHourly=opCapacity(op,lr)+extraOpHourly;
+      const projectedLineHourly=Math.min(...operationCaps.map(x=>x.op===op?projectedOpHourly:x.cap));
+      const extraDaily=Math.max(0,Math.floor((projectedLineHourly-currentLineHourly)*hours));
+      const currentDaily=Math.floor(currentLineHourly*hours);
+      const reason=opCapacity(op,lr)===0?'SHORTAGE / MISSING SKILL':`LOW CAPACITY — current operation capacity ${Math.floor(opCapacity(op,lr)*hours)} pcs/day`;
+      if(extraDaily>0 || opCapacity(op,lr)===0){
+        rec.push({line:l,op,candidates,reason,currentDaily,projectedDaily:Math.floor(projectedLineHourly*hours),extraDaily,skill:c.eff});
       }
     });
-    if(lr.length){
-      const avg=lr.reduce((a,r)=>a+(Number(r.eff)||0),0)/lr.length;
-      const low=lr.filter(r=>(Number(r.eff)||0)<70);
-      if(low.length && extras.length) rec.push({line:l,op:null,shortage:0,candidates:extras.filter(o=>!lr.some(r=>String(r.operatorId)===String(o.id))).sort((a,b)=>(Number(b.eff)||0)-(Number(a.eff)||0)),reason:`LOW CAPACITY LINE — current avg ${Math.round(avg)}%`});
-    }
   });
-  if(!rec.length){box.innerHTML='<div class="small">No immediate manpower recommendation. All required skills are filled with the current operators.</div>';return;}
-  box.innerHTML='<div class="tablewrap"><table><thead><tr><th>Priority</th><th>Line</th><th>Operation</th><th>Issue</th><th>Recommended Operator</th><th>Efficiency</th><th>Action</th></tr></thead><tbody>'+rec.slice(0,30).map((r,i)=>{
-    const c=r.candidates[0];
-    return `<tr><td><b>${i+1}</b></td><td>Line ${r.line.id}</td><td>${r.op?r.op.name:'MANPOWER SUPPORT'}</td><td>${r.reason}${r.shortage?` (${r.shortage} needed)`:''}</td><td>${c?`${c.id} - ${c.name}`:'No matching skill available'}</td><td>${c?c.eff+'%':'-'}</td><td>${c&&r.op?`<button class="green" style="padding:4px 7px" onclick="applyManpowerRecommendation(${JSON.stringify(String(r.line.id))},${JSON.stringify(r.op.name)},${JSON.stringify(String(c.id))})">ADD</button>`:'Find / Add Skilled Operator'}</td></tr>`;
-  }).join('')+'</tbody></table></div>';
+
+  rec.sort((a,b)=>b.extraDaily-a.extraDaily);
+  if(!rec.length){
+    box.innerHTML='<div class="small">No immediate manpower recommendation. Add/run operator allocation data first; recommendations will appear here automatically.</div>';
+    return;
+  }
+  box.innerHTML='<div class="small" style="margin-bottom:8px"><b>Recommendation:</b> Extra manpower is ranked by estimated additional daily production. Higher gain = higher priority.</div>'+
+    '<div class="tablewrap"><table><thead><tr><th>Priority</th><th>Line</th><th>Operation</th><th>Current Capacity</th><th>Recommended Operator</th><th>Skill</th><th>Expected Extra Production</th><th>Action</th></tr></thead><tbody>'+rec.slice(0,30).map((r,i)=>{
+      const c=r.candidates[0];
+      return `<tr><td><b>${i+1}</b></td><td>Line ${r.line.id}</td><td><b>${r.op.name}</b></td><td>${r.currentDaily} pcs/day<br><span class="small">${r.reason}</span></td><td>${c.id} - ${c.name}</td><td>${c.eff}%</td><td><b>+${r.extraDaily} pcs/day</b><br>Projected: ${r.projectedDaily} pcs/day</td><td><button class="green" style="padding:4px 7px" onclick="applyManpowerRecommendation(${JSON.stringify(String(r.line.id))},${JSON.stringify(r.op.name)},${JSON.stringify(String(c.id))})">ADD</button></td></tr>`;
+    }).join('')+'</tbody></table></div>';
 }
+
 function applyManpowerRecommendation(lineId,opName,operatorId){
   const l=activeLines().find(x=>String(x.id)===String(lineId)); if(!l)return;
   const st=styles[l.style], op=st.ops.find(x=>String(x.name).trim().toLowerCase()===String(opName).trim().toLowerCase());
@@ -1827,6 +1863,17 @@ function allocationMessage(line){
  text+='\n\nOpen current allocation: '+allocationLinkForCurrentUser(line);
  return text;
 }
+function sendCurrentAllocationToAll(){
+ const recipients=[];
+ (supervisorContacts||[]).forEach(x=>{if(x.mobile)recipients.push({mobile:x.mobile,text:allocationMessage(x.line)});});
+ (managementContacts||[]).forEach(x=>{if(x.mobile)recipients.push({mobile:x.mobile,text:allocationMessage(null)});});
+ const msg=document.getElementById('sendAllAllocationMsg');
+ if(!recipients.length){if(msg)msg.textContent='No supervisor or management contacts registered.';return;}
+ if(msg)msg.textContent='Opening WhatsApp for '+recipients.length+' recipient(s)…';
+ recipients.forEach((r,i)=>setTimeout(()=>sendWhatsApp(r.mobile,r.text),i*700));
+ setTimeout(()=>{if(msg)msg.textContent='Send started for all registered contacts.';},Math.max(0,recipients.length*700));
+}
+
 function sendWhatsApp(mobile,text){
  const m=normalizeMobile(mobile); if(!m)return; window.open('https://wa.me/'+m+'?text='+encodeURIComponent(text),'_blank');
 }
@@ -1836,17 +1883,6 @@ function renderSendAllocation(){
  const mg=managementContacts.map((x,i)=>'<div class="linebox"><b>'+x.designation+'</b> — '+x.name+' <span class="muted">'+x.mobile+'</span><button class="green" style="float:right" onclick="sendWhatsApp(\''+x.mobile+'\',allocationMessage(null))">SEND</button><div class="small" style="margin-top:8px">Full current allocation for all lines.</div></div>').join('');
  root.innerHTML=(su||'<div class="small">No supervisor contacts registered.</div>')+'<hr style="margin:14px 0;border:0;border-top:1px solid #ddd">'+(mg||'<div class="small">No management contacts registered.</div>');
 }
-function sendAllAllocations(group){
- const targets=[];
- if(group==='supervisors'||group==='all')supervisorContacts.forEach(x=>targets.push({mobile:x.mobile,text:allocationMessage(x.line)}));
- if(group==='management'||group==='all')managementContacts.forEach(x=>targets.push({mobile:x.mobile,text:allocationMessage(null)}));
- const msg=document.getElementById('sendAllMsg');
- if(!targets.length){if(msg)msg.textContent='No contacts registered for this selection.';return;}
- if(!confirm('Open WhatsApp chat for '+targets.length+' contact(s)? You must tap Send in each chat.'))return;
- targets.forEach((x,i)=>{const url='https://wa.me/'+normalizeMobile(x.mobile)+'?text='+encodeURIComponent(x.text);setTimeout(()=>window.open(url,'_blank'),i*350);});
- if(msg)msg.textContent='WhatsApp chat links opened for '+targets.length+' contact(s). Tap Send in each chat; the browser may block multiple tabs.';
-}
-
 </script>
 
 <script>
@@ -1935,6 +1971,26 @@ window.initCompactSections=initCompactSections;
 <button class="green" onclick="saveRoleUser()">👤 SAVE USER</button>
 </div>
 <div class="card"><h2>USER ACCESS MATRIX</h2><div class="tablewrap"><table><thead><tr><th>User</th><th>Role</th><th>Assigned Line</th><th>Access</th><th>Action</th></tr></thead><tbody id="roleUserTable"></tbody></table></div></div>
+<div class="card" id="adminDataDeleteCard">
+<h2>🗑️ DATA DELETE CONTROL</h2>
+<p class="small">Existing data stays unchanged unless an Admin deliberately selects a data type and confirms deletion. User accounts are not deleted from this screen.</p>
+<div class="three">
+<select id="adminDeleteType">
+<option value="styles">Style Master</option>
+<option value="operators">Operator Skill Matrix</option>
+<option value="attendance">Attendance</option>
+<option value="lines">Line Setup</option>
+<option value="orders">Order Plan</option>
+<option value="production">Production Entries</option>
+<option value="allocation">Operator Allocation & History</option>
+<option value="contacts">Supervisor & Management Contacts</option>
+<option value="breakdowns">Line Breakdown Records</option>
+<option value="all">ALL CURRENT USER DATA</option>
+</select>
+<button class="danger" onclick="deleteSelectedAppData()">🗑️ DELETE SELECTED DATA</button>
+</div>
+<div id="adminDeleteMsg" class="small" style="margin-top:10px"></div>
+</div>
 </section>
 
 <section id="mechanicScreen" class="app-screen">
@@ -2058,6 +2114,7 @@ function showScreen(name){
   const target=document.getElementById(map[name]||'homeScreen');
   if(!target)return;
   const role=lbCurrentRole||lbRoleOf(currentUser);
+  if(name==='adminHub'&&String(role).toLowerCase()!=='admin'){alert('Admin login required.');return;}
   if(!lbAccess(role).includes(name)&&name!=='home'&&name!=='profile'){alert('This login does not have access to this module.');return;}
   document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active')); target.classList.add('active');
   document.querySelectorAll('.navbtn').forEach(x=>x.classList.remove('active'));
@@ -2126,17 +2183,63 @@ function renderRoleUsers(){
   }).join('');
 }
 window.removeRoleUser=function(k){
-  if((lbCurrentRole||lbRoleOf(currentUser))!=='admin')return alert('Admin login required.');
-  const actual=Object.keys(USERS||{}).find(x=>x.toLowerCase()===String(k).toLowerCase());
-  if(!actual)return alert('User not found. Refresh the User Access Matrix and try again.');
-  if(actual.toLowerCase()==='admin')return alert('Admin cannot be deleted.');
-  if(!confirm('Delete user '+actual+'? Their account and saved app data on this browser will be deleted.'))return;
-  USERS=readUsers(); const keyNow=Object.keys(USERS).find(x=>x.toLowerCase()===actual.toLowerCase());
-  if(!keyNow)return alert('User not found.');
-  delete USERS[keyNow]; saveUsers(); delete lbRoleMeta[keyNow.toLowerCase()]; saveLbRoleMeta();
-  try{localStorage.removeItem('lineBalancingData_'+keyNow);}catch(e){}
-  renderRoleUsers(); renderUsers(); alert('User '+keyNow+' deleted successfully.');
+  if(String(lbCurrentRole).toLowerCase()!=='admin')return alert('Admin login required.');
+  USERS=readUsers();
+  const key=Object.keys(USERS).find(x=>x.toLowerCase()===String(k).toLowerCase());
+  if(!key)return alert('User not found.');
+  if(key.toLowerCase()==='admin')return alert('Admin cannot be deleted.');
+  if(key.toLowerCase()===String(currentUser).toLowerCase())return alert('The current admin account cannot be deleted while logged in.');
+  if(!confirm('Delete '+key+'?\n\nThis user account will be removed from the User Access Matrix and login list.'))return;
+
+  // Remove the selected account from the single shared user store.
+  delete USERS[key];
+  try{ localStorage.setItem('lineBalancingUsers',JSON.stringify(USERS)); }catch(e){
+    return alert('Unable to save the deletion on this device.');
+  }
+
+  // Verify that the account is really gone before refreshing the table.
+  const verify=readUsers();
+  const stillExists=Object.keys(verify).some(x=>x.toLowerCase()===key.toLowerCase());
+  if(stillExists)return alert('Delete failed. Please try again.');
+
+  delete lbRoleMeta[key.toLowerCase()];
+  saveLbRoleMeta();
+  try{localStorage.removeItem('lineBalancingData_'+key);}catch(e){}
+
+  // Rebuild both user lists so the deleted row disappears immediately.
+  USERS=verify;
+  renderRoleUsers();
+  renderUsers();
+  alert('✅ User deleted: '+key);
 };
+
+function deleteSelectedAppData(){
+  if(String(lbCurrentRole).toLowerCase()!=='admin')return alert('Admin login required.');
+  const type=document.getElementById('adminDeleteType')?.value||'';
+  const labels={styles:'Style Master',operators:'Operator Skill Matrix',attendance:'Attendance',lines:'Line Setup',orders:'Order Plan',production:'Production Entries',allocation:'Operator Allocation & History',contacts:'Supervisor & Management Contacts',breakdowns:'Line Breakdown Records',all:'ALL CURRENT USER DATA'};
+  const label=labels[type]||'Selected Data';
+  if(!currentUser)return alert('Please login first.');
+  const ok=confirm('Delete '+label+' for the current user?\n\nThis cannot be undone. Other user accounts will not be deleted.');
+  if(!ok)return;
+  if(type==='styles') styles=[];
+  else if(type==='operators') operators=[];
+  else if(type==='attendance'){present=new Set();absent=new Set();attendanceTotal=new Set();}
+  else if(type==='lines') lines=[];
+  else if(type==='orders') orders=[];
+  else if(type==='production') production=[];
+  else if(type==='allocation'){lastAllocation=[];allocationHistory=[];}
+  else if(type==='contacts'){supervisorContacts=[];managementContacts=[];}
+  else if(type==='breakdowns') breakdowns=[];
+  else if(type==='all'){
+    styles=[];operators=[];present=new Set();absent=new Set();attendanceTotal=new Set();lines=[];orders=[];production=[];lastLineReport=[];lastAllocation=[];lastBottleData={};allocationHistory=[];supervisorContacts=[];managementContacts=[];breakdowns=[];eodEntries=[];
+  }
+  saveUserData();
+  if(type==='styles'){refreshStyles();}
+  if(type==='operators'){renderOperatorTable();}
+  if(type==='attendance'){renderAttendance();}
+  refreshLines(); refreshStyles(); refreshContactLineSelect(); renderContacts(); renderSendAllocation(); renderOrders(); renderProduction(); drawProductionChart(); drawHome(); renderBreakdowns(); renderAllocationTable(); renderUsers(); renderRoleUsers(); renderPlanningHub(); renderSupervisorPortal();
+  const msg=document.getElementById('adminDeleteMsg'); if(msg)msg.textContent='✅ '+label+' deleted for '+currentUser+'. Other users and the login account were not deleted.';
+}
 
 /* Shared Planning */
 function findPlan(style){return lbSharedPlanning.find(x=>String(x.style).toLowerCase()===String(style).toLowerCase());}
