@@ -111,6 +111,17 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 }
 </script>
 
+
+<style>
+/* OLD APP V3 - ROLE / PLANNING / SUPERVISOR ADD-ON */
+.role-lock{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px;margin-bottom:12px}
+.risk-high{background:#fee2e2;color:#991b1b}.risk-watch{background:#fef3c7;color:#92400e}.risk-ok{background:#dcfce7;color:#166534}
+.super-hero{background:linear-gradient(135deg,#0f172a,#2563eb);color:#fff;border-radius:14px;padding:16px}
+.sup-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}
+.sup-kpi{padding:14px;border-radius:12px;background:#fff;border:1px solid #dbeafe}.sup-kpi small{color:#64748b;display:block}.sup-kpi b{display:block;font-size:22px;margin-top:4px}
+.super-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:800px){.sup-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
 </head>
 <body>
 <div id="loginScreen" style="position:fixed;inset:0;background:#17202a;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
@@ -158,6 +169,10 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <button class="navbtn" id="navContacts" onclick="showScreen('contacts')">📲 SEND & CONTACTS</button>
 <button class="navbtn" id="navBreakdown" onclick="showScreen('breakdown')">🛠️ LINE BREAKDOWN</button>
 <button class="navbtn" id="navEod" onclick="showScreen('eod')">📋 SUPERVISOR EOD</button><button class="navbtn" id="navMechanic" onclick="showScreen('mechanic')">🔧 MECHANIC MANAGEMENT</button>
+<button class="navbtn" id="navPlanning" onclick="showScreen('planningHub')">📦 PLANNING</button>
+<button class="navbtn" id="navAllocationHub" onclick="showScreen('allocationHub')">🎯 PM + IE STYLE ALLOCATION</button>
+<button class="navbtn" id="navSupervisorHub" onclick="showScreen('supervisorHub')">👷 SUPERVISOR LINE PORTAL</button>
+<button class="navbtn" id="navAdminHub" onclick="showScreen('adminHub')">🔐 ADMIN CONTROL</button>
 </div>
 <div id="contactsScreen" class="app-screen">
 <div class="hero"><h1>📲 Supervisor & Management SEND</h1><p>Register line supervisors and management staff. After Auto Balance, SEND opens WhatsApp with the correct current allocation link.</p></div>
@@ -225,6 +240,7 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
   </div>
   <div class="card"><h2>📌 Management Summary</h2><div class="stats" id="homeStats"></div></div>
   <div class="card"><h2>🎯 Line Status — Efficiency & Auto Target</h2><div class="tablewrap"><table><thead><tr><th>Line</th><th>Style</th><th>Auto Target Qty</th><th>Est./Hour</th><th>Actual</th><th>Achievement</th><th>Efficiency</th><th>Status</th></tr></thead><tbody id="homeLineTable"></tbody></table></div></div>
+  <div class="card"><h2>🛠️ Manager Breakdown Summary — Open Problems</h2><p class="small">Open and in-progress line stoppages, operation/machine problems and downtime.</p><div id="homeBreakdownSummary"></div></div>
 </div>
 
 <div id="ordersScreen" class="app-screen">
@@ -407,7 +423,7 @@ let breakdowns=[];
 let eodEntries=[];
 let currentUser='';
 const DEFAULT_USERS={admin:'admin123',line01:'line01',line02:'line02',line03:'line03'};
-let USERS=JSON.parse(localStorage.getItem('lineBalancingUsers')||'null')||DEFAULT_USERS;
+let USERS=(function(){try{const x=JSON.parse(localStorage.getItem('lineBalancingUsers')||'null');return (x&&typeof x==='object')?x:{...DEFAULT_USERS};}catch(e){return {...DEFAULT_USERS};}})();
 function userPassword(v){ return (v && typeof v==='object') ? String(v.password||'') : String(v??''); }
 function userRole(v){ return (v && typeof v==='object') ? (v.role||'supervisor') : (v==='admin123'?'admin':'supervisor'); }
 function saveUsers(){
@@ -946,6 +962,7 @@ function rebuildReportsFromAllocation(){
     lineReport.push({line:l.id,style:st.style,required,allocated,shortage:Math.max(0,required-allocated),eff,balance,targetQty:daily,hourlyQty:hourly,dailyQty:daily,baseHourlyQty:Math.floor(baseHourly)});
   });
   lastLineReport=lineReport;
+  drawHome();
   const totalReq=lineReport.reduce((a,r)=>a+r.required,0), totalAlloc=rows.length, totalShort=Math.max(0,totalReq-totalAlloc), extra=presentOps.filter(o=>!used.has(String(o.id)));
   document.getElementById('balanceSummary').innerHTML=`<div class="stats"><div class="stat">LINES<b>${active.length}</b></div><div class="stat">REQUIRED<b>${totalReq}</b></div><div class="stat">ALLOCATED<b>${totalAlloc}</b></div><div class="stat">${totalShort?'SHORTAGE':'EXTRA'}<b>${totalShort||extra.length}</b></div><div class="stat">EST. HOURLY QTY<b>${lineReport.reduce((a,r)=>a+r.hourlyQty,0)}</b></div><div class="stat">EST. DAILY QTY<b>${lineReport.reduce((a,r)=>a+r.dailyQty,0)}</b></div></div>`;
   document.getElementById('balanceMsg').textContent=totalShort?`SHORTAGE: ${totalShort} operator assignments could not be filled.`:`EXTRA OPERATORS: ${extra.length} present operators are not required for the selected lines.`;
@@ -1196,10 +1213,33 @@ function drawProductionChart(){
  const by={};production.forEach(p=>{by[p.line]=(by[p.line]||0)+(Number(p.actual)||0)});const arr=Object.entries(by);const max=Math.max(...arr.map(x=>x[1]),1),bw=Math.min(90,(c.width-90)/Math.max(arr.length,1)-15);arr.forEach((x,i)=>{const xx=55+i*(bw+15),h=x[1]/max*170;ctx.fillStyle=['#2563eb','#16a34a','#f59e0b','#dc2626','#7c3aed','#0891b2'][i%6];ctx.fillRect(xx,215-h,bw,h);ctx.fillStyle='#17202a';ctx.fillText('Line '+x[0],xx,235);ctx.fillText(String(x[1]),xx+10,205-h);});
 }
 function drawHome(){
- const box=document.getElementById('homeStats');if(!box)return; const active=activeLines(); const presentCount=attendanceTotal.size?present.size:operators.length; const req=lastLineReport.reduce((a,r)=>a+r.required,0),alloc=lastLineReport.reduce((a,r)=>a+r.allocated,0),avg=lastLineReport.length?Math.round(lastLineReport.reduce((a,r)=>a+r.eff,0)/lastLineReport.length):0; const target=lines.reduce((a,l)=>a+(Number(l.target)||0),0),actual=production.reduce((a,p)=>a+(Number(p.actual)||0),0); const ach=target?Math.round(actual/target*100):0;
- box.innerHTML=`<div class="stat">LINES<b>${active.length}</b></div><div class="stat">PRESENT<b>${presentCount}</b></div><div class="stat">ALLOCATED<b>${alloc}</b></div><div class="stat">SHORTAGE<b>${Math.max(0,req-alloc)}</b></div><div class="stat">AVG EFF<b>${avg}%</b></div><div class="stat">TODAY TARGET<b>${target}</b></div><div class="stat">TODAY ACTUAL<b>${actual}</b></div><div class="stat">ACHIEVEMENT<b>${ach}%</b></div>`;
- const tb=document.getElementById('homeLineTable'); if(!tb)return;tb.innerHTML=lines.map(l=>{const r=lastLineReport.find(x=>Number(x.line)===Number(l.id))||{eff:l.eff||0,targetQty:l.autoTargetQty||0,hourlyQty:l.hourlyQty||0};const autoTarget=Number(r.targetQty||l.autoTargetQty||0);const t=autoTarget||Number(l.target||0);const a=production.filter(p=>String(p.line)===String(l.id)).reduce((a,p)=>a+(Number(p.actual)||0),0);const ach=t?Math.round(a/t*100):0;return `<tr><td>${l.id}</td><td>${l.style!==''&&styles[l.style]?styles[l.style].style:'-'}</td><td><b>${autoTarget}</b></td><td>${Number(r.hourlyQty||l.hourlyQty||0)}</td><td>${a}</td><td>${ach}%</td><td><b>${r.eff||0}%</b></td><td><span class="statuspill ${l.status==='Running'?'run':l.status==='Hold'?'hold':'closed'}">${l.status}</span></td></tr>`}).join('')||'<tr><td colspan="8">No lines.</td></tr>';
+ const box=document.getElementById('homeStats');if(!box)return;
+ const active=activeLines();
+ const presentCount=attendanceTotal.size?present.size:operators.length;
+ const required=lastLineReport.length?lastLineReport.reduce((a,r)=>a+(Number(r.required)||0),0):active.reduce((a,l)=>a+(styles[l.style]?.ops||[]).reduce((n,op)=>n+Math.max(1,Math.floor(Number(op.qty)||1)),0),0);
+ const alloc=lastAllocation.length;
+ const shortage=lastLineReport.length?lastLineReport.reduce((a,r)=>a+(Number(r.shortage)||0),0):Math.max(0,required-alloc);
+ const extra=Math.max(0,presentCount-alloc);
+ const avg=lastLineReport.length?Math.round(lastLineReport.reduce((a,r)=>a+(Number(r.eff)||0),0)/lastLineReport.length):0;
+ const target=lastLineReport.length?lastLineReport.reduce((a,r)=>a+(Number(r.targetQty)||0),0):active.reduce((a,l)=>a+(Number(l.autoTargetQty)||0),0);
+ const actual=production.reduce((a,p)=>a+(Number(p.actual)||0),0);
+ const achievement=target?Math.round(actual/target*100):0;
+ const balance=required?Math.round(alloc/required*100):0;
+ const balanced=lastLineReport.filter(r=>Number(r.shortage)===0 && Number(r.required)>0).length;
+ const openBreakdowns=(breakdowns||[]).filter(b=>!['CLOSED','RESOLVED'].includes(String(b.status||'OPEN').toUpperCase()));
+ box.innerHTML=`<div class="stat">LINES<b>${active.length||lines.length}</b></div><div class="stat">PRESENT<b>${presentCount}</b></div><div class="stat">ALLOCATED<b>${alloc}</b></div><div class="stat">SHORTAGE<b>${shortage}</b></div><div class="stat">EXTRA<b>${extra}</b></div><div class="stat">AVG EFF<b>${avg}%</b></div><div class="stat">BALANCE<b>${balance}%</b></div><div class="stat">BALANCED LINES<b>${balanced}</b></div><div class="stat">TODAY TARGET<b>${target}</b></div><div class="stat">TODAY ACTUAL<b>${actual}</b></div><div class="stat">ACHIEVEMENT<b>${achievement}%</b></div><div class="stat">OPEN BREAKDOWNS<b>${openBreakdowns.length}</b></div>`;
+ const tb=document.getElementById('homeLineTable');if(!tb)return;
+ tb.innerHTML=lines.map(l=>{const r=lastLineReport.find(x=>String(x.line)===String(l.id))||{};const styleName=r.style||(l.style!==''&&styles[l.style]?styles[l.style].style:'-');const autoTarget=Number(r.targetQty??l.autoTargetQty)||0;const hourly=Number(r.hourlyQty??l.hourlyQty)||0;const a=production.filter(p=>String(p.line)===String(l.id)).reduce((n,p)=>n+(Number(p.actual)||0),0);const ach=autoTarget?Math.round(a/autoTarget*100):0;const eff=Number(r.eff??l.eff)||0;const status=shortLineStatus(l.id,r,openBreakdowns);return `<tr><td>${l.id}</td><td>${escapeHtml(styleName)}</td><td><b>${autoTarget}</b></td><td>${hourly}</td><td>${a}</td><td>${ach}%</td><td><b>${eff}%</b></td><td><span class="statuspill ${status.cls}">${status.label}</span></td></tr>`}).join('')||'<tr><td colspan="8">No lines.</td></tr>';
+ const btb=document.getElementById('homeBreakdownSummary');if(btb){btb.innerHTML=openBreakdowns.length?`<div class="tablewrap"><table><thead><tr><th>Date</th><th>Line</th><th>Operation / Machine</th><th>Problem</th><th>Downtime</th><th>Status</th></tr></thead><tbody>${openBreakdowns.slice().sort((a,b)=>Number(b.id)-Number(a.id)).slice(0,8).map(b=>`<tr><td>${escapeHtml(b.date||'-')}</td><td>Line ${escapeHtml(b.line)}</td><td>${escapeHtml(b.operation||'-')}</td><td>${escapeHtml(b.reason||'-')}</td><td>${Number(b.minutes)||0} min</td><td>${escapeHtml(b.status||'OPEN')}</td></tr>`).join('')}</tbody></table></div><button class="primary" onclick="showScreen('breakdown')" style="margin-top:8px">OPEN BREAKDOWN MANAGEMENT</button>`:'<div class="empty-state">No open line breakdowns reported.</div>';}
 }
+function shortLineStatus(lineId,r,openBreakdowns){
+ if((openBreakdowns||[]).some(b=>String(b.line)===String(lineId)))return {label:'BREAKDOWN',cls:'risk'};
+ if(Number(r.shortage)>0)return {label:'SHORTAGE',cls:'risk'};
+ if(Number(r.required)>0&&Number(r.allocated)>=Number(r.required))return {label:'BALANCED',cls:'good'};
+ const l=lines.find(x=>String(x.id)===String(lineId));
+ return {label:l?.status||'PENDING',cls:l?.status==='Running'?'run':l?.status==='Hold'?'hold':'closed'};
+}
+
 function downloadDashboardReport(){
  if(typeof XLSX==='undefined') return alert('Excel library not loaded.');
  const report=(lastLineReport||[]).map(r=>({
@@ -1729,12 +1769,12 @@ function saveBreakdown(){
  const start=document.getElementById('breakStart')?.value,end=document.getElementById('breakEnd')?.value,minutes=Number(document.getElementById('breakMinutes')?.value||0),action=document.getElementById('breakAction')?.value.trim(),status=document.getElementById('breakStatus')?.value||'OPEN';
  if(!line||!operation||!reason)return alert('Enter Line, Operation / Machine and Breakdown Reason.');
  breakdowns.push({id:Date.now(),date:todayISO(),line:Number(line),operation,reason,start,end,minutes,action,status,reportedBy:currentUser||'Supervisor'});
- autoSave(); renderBreakdowns(); renderBreakdownSend();
+ autoSave(); renderBreakdowns(); renderBreakdownSend(); drawHome();
  ['breakOperation','breakReason','breakStart','breakEnd','breakMinutes','breakAction'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
  document.getElementById('breakStatus').value='OPEN';
  alert('✅ Line breakdown saved.');
 }
-function deleteBreakdown(id){if(!confirm('Delete this breakdown record?'))return; breakdowns=breakdowns.filter(x=>String(x.id)!==String(id));autoSave();renderBreakdowns();renderBreakdownSend();}
+function deleteBreakdown(id){if(!confirm('Delete this breakdown record?'))return; breakdowns=breakdowns.filter(x=>String(x.id)!==String(id));autoSave();renderBreakdowns();renderBreakdownSend();drawHome();}
 function breakdownText(item){
  if(!item)return 'LINE BREAKDOWN\nNo breakdown record available.';
  return 'LINE BALANCING APP\nLINE BREAKDOWN REPORT\nDate: '+(item.date||todayISO())+'\nLine: '+item.line+'\nOperation / Machine: '+item.operation+'\nReason: '+item.reason+'\nStart: '+(item.start||'-')+'\nEnd: '+(item.end||'-')+'\nDowntime: '+(item.minutes||0)+' min\nStatus: '+(item.status||'-')+'\nAction / Remarks: '+(item.action||'-')+'\nReported By: '+(item.reportedBy||'-');
@@ -1830,6 +1870,69 @@ window.initCompactSections=initCompactSections;
 </script>
 
 
+
+<section id="planningHubScreen" class="app-screen">
+<div class="hero"><h1>📦 PLANNING LOGIN</h1><p>Planning enters Style + Order Qty + Shipment dates. Size breakup is intentionally not used.</p></div>
+<div class="card">
+<h2>CREATE / UPDATE STYLE ORDER PLAN</h2>
+<div class="three">
+<input id="plStyle" placeholder="Style No">
+<input id="plOrderQty" type="number" min="1" placeholder="Order Quantity">
+<input id="plStart" type="date">
+<input id="plEnd" type="date">
+<input id="plBuyer" placeholder="Buyer (optional)">
+<input id="plColor" placeholder="Color (optional)">
+</div>
+<button class="green" onclick="saveNewPlanning()">💾 SAVE PLANNING</button>
+</div>
+<div class="card"><h2>PLANNING DATA</h2><div class="tablewrap"><table><thead><tr><th>Style</th><th>Order Qty</th><th>Shipment Start</th><th>Shipment End</th><th>Balance</th><th>Risk</th></tr></thead><tbody id="planningTable"></tbody></table></div></div>
+</section>
+
+<section id="allocationHubScreen" class="app-screen">
+<div class="hero"><h1>🎯 PRODUCTION MANAGER + IE — STYLE / LINE ALLOCATION</h1><p>Both Production Manager and IE have full access to decide which style runs on which lines, line target, and sequence.</p></div>
+<div class="card">
+<h2>ALLOCATE STYLE TO LINES</h2>
+<div class="three">
+<select id="hubPlanStyle"><option value="">SELECT STYLE</option></select>
+<input id="hubLineIds" placeholder="Lines e.g. 1,2,3">
+<input id="hubLineQty" type="number" min="1" placeholder="Planned Qty for selected lines">
+<input id="hubTarget" type="number" min="1" placeholder="Target / Line / Day">
+<input id="hubStart" type="date"><input id="hubEnd" type="date">
+<input id="hubSequence" type="number" min="1" value="1" placeholder="Sequence">
+</div>
+<div class="actionbar"><button class="primary" onclick="saveStyleLineAllocation()">💾 SAVE STYLE ALLOCATION</button><button class="green" onclick="runHubAutoBalance()">⚙️ SEND TO AUTO LINE BALANCE</button></div>
+</div>
+<div class="card"><h2>LINE PLAN BOARD</h2><div class="tablewrap"><table><thead><tr><th>Line</th><th>Current Style</th><th>Next Style</th><th>Planned Qty</th><th>Target / Day</th><th>Shipment</th><th>Risk</th></tr></thead><tbody id="hubLineTable"></tbody></table></div></div>
+</section>
+
+<section id="supervisorHubScreen" class="app-screen">
+<div class="hero"><h1>👷 SUPERVISOR LINE PORTAL</h1><p id="supPortalSubtitle">Only the line assigned to this Supervisor is shown.</p></div>
+<div id="supervisorPortal"></div>
+</section>
+
+<section id="adminHubScreen" class="app-screen">
+<div class="hero"><h1>🔐 ADMIN CONTROL CENTER</h1><p>Create logins, assign roles, assign supervisor lines, and control access.</p></div>
+<div class="card">
+<h2>CREATE / UPDATE USER</h2>
+<div class="three">
+<input id="hubUserId" placeholder="User ID">
+<input id="hubUserPass" type="password" placeholder="Password">
+<select id="hubUserRole">
+<option value="planning">Planning</option>
+<option value="production_manager">Production Manager</option>
+<option value="ie">IE</option>
+<option value="supervisor">Supervisor</option>
+<option value="mechanic_manager">Mechanic Manager</option>
+<option value="management">Management</option>
+<option value="admin">Admin</option>
+</select>
+<input id="hubUserLine" type="number" min="1" placeholder="Supervisor Line (only for Supervisor)">
+</div>
+<button class="green" onclick="saveRoleUser()">👤 SAVE USER</button>
+</div>
+<div class="card"><h2>USER ACCESS MATRIX</h2><div class="tablewrap"><table><thead><tr><th>User</th><th>Role</th><th>Assigned Line</th><th>Access</th><th>Action</th></tr></thead><tbody id="roleUserTable"></tbody></table></div></div>
+</section>
+
 <section id="mechanicScreen" class="app-screen">
 <div class="hero"><h1>🔧 MECHANIC MANAGEMENT</h1><p>Mechanic Manager controls mechanic master, line responsibility, attendance/status and automatic breakdown routing.</p></div>
 <div class="card"><h2>📊 MECHANIC MANAGER DASHBOARD</h2><div class="three"><div class="linebox"><b id="mmTotal">0</b><br><span class="small">TOTAL MECHANICS</span></div><div class="linebox"><b id="mmAvailable">0</b><br><span class="small">AVAILABLE</span></div><div class="linebox"><b id="mmBusy">0</b><br><span class="small">BUSY / OPEN JOB</span></div></div><div style="margin-top:10px"><button class="primary" onclick="sendMechanicManagerSummary()">📲 SEND MANAGER SUMMARY</button></div></div>
@@ -1890,6 +1993,447 @@ window.mechanicAttendFromLink=function(id){const b=(window.breakdowns||[]).find(
 window.mechanicCloseFromLink=function(id){const b=(window.breakdowns||[]).find(x=>String(x.id)===String(id));if(!b)return;b.status='MECHANIC CLEARED';b.mechanicClosedAt=new Date().toISOString();if(window.autoSave)window.autoSave();const a=window.findMechanicForLine&&window.findMechanicForLine(b.line),m=a&&window.mechanics.find(x=>x.id===a.mechanicId);if(m){m.status='AVAILABLE';localStorage.setItem('mechanics_'+(window.currentUser||'admin'),JSON.stringify(window.mechanics));}const s=(window.supervisorContacts||[]).find(x=>String(x.line)===String(b.line));if(s)sendWhatsApp(s.mobile,'🔔 SUPERVISOR CONFIRMATION REQUIRED\nLine '+b.line+'\nOperation: '+b.operation+'\nProblem: '+b.reason+'\nMechanic: '+(m?m.name:'-')+'\nMechanic cleared at: '+new Date().toLocaleString()+'\nPlease confirm CLOSE.');if(window.mechanicManager)sendWhatsApp(window.mechanicManager.mobile,'✅ MECHANIC CLEARED - SUPERVISOR CONFIRMATION PENDING\nLine '+b.line+'\nOperation: '+b.operation+'\nProblem: '+b.reason+'\nMechanic: '+(m?m.name:'-'));alert('✅ Mechanic cleared. Supervisor confirmation is now pending.');handleMechanicHash();};
 window.supervisorConfirmBreakdownClose=function(id){const b=(window.breakdowns||[]).find(x=>String(x.id)===String(id));if(!b)return;b.status='CLOSED';b.supervisorConfirmedAt=new Date().toISOString();if(window.autoSave)window.autoSave();if(window.renderBreakdowns)window.renderBreakdowns();if(window.renderMechanicBreakdownQueue)window.renderMechanicBreakdownQueue();if(window.mechanicManager)sendWhatsApp(window.mechanicManager.mobile,'✅ BREAKDOWN FINAL CLOSED\nLine '+b.line+'\nOperation: '+b.operation+'\nProblem: '+b.reason+'\nSupervisor confirmed close.');alert('✅ Breakdown FINAL CLOSED.');handleMechanicHash();};
 window.addEventListener('hashchange',handleMechanicHash);setTimeout(handleMechanicHash,300);
+})();
+</script>
+
+<script>
+/* =========================================================
+   OLD APP BASE - CONNECTED ROLE / PLANNING / SUPERVISOR ADD-ON
+   This layer extends the uploaded old HTML; it does not replace
+   the existing line-balancing, mechanic, breakdown or WhatsApp code.
+========================================================= */
+const LB_ROLE_KEY='lbRoleMeta_v1';
+const LB_PLAN_KEY='lbSharedPlanning_v1';
+let lbRoleMeta=(function(){try{const x=JSON.parse(localStorage.getItem(LB_ROLE_KEY)||'{}');return (x&&typeof x==='object')?x:{};}catch(e){return {};}})();
+let lbSharedPlanning=(function(){try{const x=JSON.parse(localStorage.getItem(LB_PLAN_KEY)||'[]');return Array.isArray(x)?x:[];}catch(e){return [];}})();
+let lbCurrentRole='';
+
+const LB_ROLE_LABELS={
+ admin:'Admin',planning:'Planning',production_manager:'Production Manager',ie:'IE',
+ supervisor:'Supervisor',mechanic_manager:'Mechanic Manager',management:'Management'
+};
+function saveLbRoleMeta(){try{localStorage.setItem(LB_ROLE_KEY,JSON.stringify(lbRoleMeta));}catch(e){}}
+function saveLbPlanning(){try{localStorage.setItem(LB_PLAN_KEY,JSON.stringify(lbSharedPlanning));}catch(e){}}
+function lbRoleOf(u){
+  const meta=lbRoleMeta[String(u).toLowerCase()];
+  if(meta&&meta.role)return meta.role;
+  return userRole((USERS||{})[u]);
+}
+function lbLineOf(u){
+  const meta=lbRoleMeta[String(u).toLowerCase()];
+  return meta&&meta.line ? Number(meta.line) : null;
+}
+function lbAccess(role){
+  return {
+    admin:['home','profile','orders','main','efficiency','bottleneck','contacts','breakdown','eod','mechanic','planningHub','allocationHub','supervisorHub','adminHub'],
+    planning:['home','profile','planningHub'],
+    production_manager:['home','profile','planningHub','allocationHub','main','efficiency','bottleneck','orders','contacts','eod'],
+    ie:['home','profile','planningHub','allocationHub','main','efficiency','bottleneck','orders','contacts','eod'],
+    supervisor:['home','profile','supervisorHub','eod'],
+    mechanic_manager:['home','profile','mechanic','breakdown'],
+    management:['home','profile','efficiency','bottleneck','reports','eod']
+  }[role]||['home','profile'];
+}
+function applyLbRoleUI(){
+  const role=lbCurrentRole||lbRoleOf(currentUser);
+  const allow=new Set(lbAccess(role));
+  const navMap={navHome:'home',navProfile:'profile',navOrder:'orders',navMain:'main',navEff:'efficiency',navBottle:'bottleneck',navContacts:'contacts',navBreakdown:'breakdown',navEod:'eod',navMechanic:'mechanic',navPlanning:'planningHub',navAllocationHub:'allocationHub',navSupervisorHub:'supervisorHub',navAdminHub:'adminHub'};
+  Object.entries(navMap).forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.style.display=allow.has(key)?'':'none';});
+  const title=document.getElementById('currentUser');
+  if(title)title.innerHTML='Logged in: <b>'+escapeHtml(currentUser)+'</b> • Role: <b>'+escapeHtml(LB_ROLE_LABELS[role]||role)+'</b>'+(role==='supervisor'&&lbLineOf(currentUser)?' • Line '+lbLineOf(currentUser):'');
+  if(role==='supervisor'){showScreen('supervisorHub');renderSupervisorPortal();}
+  else if(role==='planning'){showScreen('planningHub');renderPlanningHub();}
+  else if(role==='production_manager'||role==='ie'){showScreen('allocationHub');renderAllocationHub();}
+  else if(role==='mechanic_manager'){showScreen('mechanic');}
+  else if(role==='management'){showScreen('efficiency');}
+  else {showScreen('home');}
+  if(document.getElementById('userAdmin'))document.getElementById('userAdmin').style.display=role==='admin'?'block':'none';
+}
+function showScreen(name){
+  const map={home:'homeScreen',profile:'profileScreen',orders:'ordersScreen',main:'mainScreen',efficiency:'efficiencyScreen',bottleneck:'bottleneckScreen',contacts:'contactsScreen',breakdown:'breakdownScreen',eod:'eodScreen',mechanic:'mechanicScreen',planningHub:'planningHubScreen',allocationHub:'allocationHubScreen',supervisorHub:'supervisorHubScreen',adminHub:'adminHubScreen'};
+  const target=document.getElementById(map[name]||'homeScreen');
+  if(!target)return;
+  const role=lbCurrentRole||lbRoleOf(currentUser);
+  if(!lbAccess(role).includes(name)&&name!=='home'&&name!=='profile'){alert('This login does not have access to this module.');return;}
+  document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active')); target.classList.add('active');
+  document.querySelectorAll('.navbtn').forEach(x=>x.classList.remove('active'));
+  const nav={home:'navHome',profile:'navProfile',orders:'navOrder',main:'navMain',efficiency:'navEff',bottleneck:'navBottle',contacts:'navContacts',breakdown:'navBreakdown',eod:'navEod',mechanic:'navMechanic',planningHub:'navPlanning',allocationHub:'navAllocationHub',supervisorHub:'navSupervisorHub',adminHub:'navAdminHub'};
+  if(document.getElementById(nav[name]))document.getElementById(nav[name]).classList.add('active');
+  if(name==='planningHub')renderPlanningHub();
+  if(name==='allocationHub'){refreshHubStyleSelect();renderAllocationHub();}
+  if(name==='supervisorHub')renderSupervisorPortal();
+  if(name==='adminHub')renderRoleUsers();
+  if(name==='mechanic'){renderMechanicManager();renderMechanicAssignments();renderMechanicBreakdownQueue();}
+  if(name==='eod'){refreshEodLineSelect();renderEodReport();}
+}
+
+/* Override login only: old data modules remain intact. */
+window.login=function(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  if(!u||!p)return alert('Enter User ID and Password');
+  USERS=readUsers();
+  const key=Object.keys(USERS).find(k=>k.toLowerCase()===u.toLowerCase());
+  if(!key||userPassword(USERS[key])!==p){document.getElementById('loginMsg').textContent='Invalid User ID or Password.';return;}
+  currentUser=key; window.currentUser=key;
+  lbCurrentRole=lbRoleOf(key);
+  localStorage.setItem('lineBalancingCurrentUser',key);
+  document.getElementById('loginScreen').style.display='none';
+  loadUserData();
+  initAllocationDate();
+  applyLbRoleUI();
+  renderUsers();
+  renderRoleUsers();
+  renderPlanningHub();
+  refreshHubStyleSelect();
+  renderAllocationHub();
+  renderSupervisorPortal();
+};
+
+window.logout=function(){
+  saveUserData();
+  currentUser=''; window.currentUser='';
+  lbCurrentRole='';
+  localStorage.removeItem('lineBalancingCurrentUser');
+  document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';
+  document.getElementById('loginMsg').textContent='';
+  document.getElementById('loginScreen').style.display='flex';
+};
+
+/* Create/update role user */
+window.saveRoleUser=function(){
+  if(lbCurrentRole!=='admin')return alert('Admin login required.');
+  const id=document.getElementById('hubUserId').value.trim(),pw=document.getElementById('hubUserPass').value,role=document.getElementById('hubUserRole').value,line=Number(document.getElementById('hubUserLine').value)||null;
+  if(!id||!pw)return alert('Enter User ID and Password.');
+  USERS=readUsers();
+  const key=Object.keys(USERS).find(k=>k.toLowerCase()===id.toLowerCase())||id;
+  USERS[key]={password:pw,role}; saveUsers();
+  lbRoleMeta[key.toLowerCase()]={role,line:role==='supervisor'?line:null};
+  saveLbRoleMeta(); renderRoleUsers();
+  alert('✅ User saved: '+key+' • '+LB_ROLE_LABELS[role]+(role==='supervisor'&&line?' • Line '+line:''));
+};
+function renderRoleUsers(){
+  const el=document.getElementById('roleUserTable'); if(!el)return;
+  USERS=readUsers();
+  el.innerHTML=Object.keys(USERS).map(k=>{
+    const role=lbRoleOf(k),line=lbLineOf(k);
+    const access=role==='supervisor'?'Assigned line only':role==='planning'?'Planning entry only':role==='production_manager'||role==='ie'?'Full style/line allocation + balance':role==='mechanic_manager'?'Mechanic / breakdown':'Dashboard / reports';
+    return `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(LB_ROLE_LABELS[role]||role)}</td><td>${line?'Line '+line:'-'}</td><td>${escapeHtml(access)}</td><td>${k.toLowerCase()==='admin'?'Protected':'<button class="danger" style="padding:5px 8px" onclick="removeRoleUser('+JSON.stringify(k)+')">DELETE</button>'}</td></tr>`;
+  }).join('');
+}
+window.removeRoleUser=function(k){
+  if(lbCurrentRole!=='admin')return alert('Admin login required.');
+  if(String(k).toLowerCase()==='admin')return alert('Admin cannot be deleted.');
+  if(!confirm('Delete '+k+'?'))return;
+  delete USERS[k];saveUsers();delete lbRoleMeta[String(k).toLowerCase()];saveLbRoleMeta();renderRoleUsers();
+};
+
+/* Shared Planning */
+function findPlan(style){return lbSharedPlanning.find(x=>String(x.style).toLowerCase()===String(style).toLowerCase());}
+function getProducedForStyle(style){
+  return production.filter(p=>{const l=lines.find(x=>String(x.id)===String(p.line));const s=l&&l.style!==''&&styles[l.style]?styles[l.style].style:'';return String(s).toLowerCase()===String(style).toLowerCase();}).reduce((a,p)=>a+(Number(p.actual)||0),0);
+}
+function planRisk(plan){
+  const bal=Math.max(0,Number(plan.orderQty||0)-getProducedForStyle(plan.style));
+  if(bal<=0)return 'COMPLETE';
+  if(!plan.end)return 'NO DATE';
+  const today=new Date();today.setHours(0,0,0,0);const end=new Date(plan.end);end.setHours(0,0,0,0);
+  const days=Math.ceil((end-today)/86400000);
+  const daily=Math.max(1,Number(plan.totalTarget||0));
+  const needDays=Math.ceil(bal/daily);
+  if(days<0||needDays>Math.max(0,days))return 'RISK';
+  if(needDays>=Math.max(1,days-1))return 'WATCH';
+  return 'ON TRACK';
+}
+function saveNewPlanning(){
+  if(!['admin','planning','production_manager','ie'].includes(lbCurrentRole))return alert('Planning access required.');
+  const style=document.getElementById('plStyle').value.trim(),qty=Number(document.getElementById('plOrderQty').value)||0,start=document.getElementById('plStart').value,end=document.getElementById('plEnd').value,buyer=document.getElementById('plBuyer').value.trim(),color=document.getElementById('plColor').value.trim();
+  if(!style||qty<=0||!end)return alert('Enter Style, Order Qty and Shipment End Date.');
+  const existing=findPlan(style);
+  const obj={style,orderQty:qty,start,end,buyer,color,allocations:existing?.allocations||[],totalTarget:existing?.totalTarget||0,updatedBy:currentUser,updatedAt:new Date().toISOString()};
+  if(existing)Object.assign(existing,obj);else lbSharedPlanning.push(obj);
+  saveLbPlanning();
+  // Also make the style available to the existing Style Master if it does not exist.
+  if(!styles.some(s=>String(s.style).toLowerCase()===style.toLowerCase()))styles.push({style,ops:[]});
+  autoSave();refreshStyles();renderPlanningHub();refreshHubStyleSelect();
+  ['plStyle','plOrderQty','plStart','plEnd','plBuyer','plColor'].forEach(id=>document.getElementById(id).value='');
+  alert('✅ Planning saved. PM and IE can now allocate this style.');
+}
+function renderPlanningHub(){
+  const tb=document.getElementById('planningTable');if(!tb)return;
+  tb.innerHTML=lbSharedPlanning.map(p=>{
+    const bal=Math.max(0,Number(p.orderQty)-getProducedForStyle(p.style)),r=planRisk(p);
+    return `<tr><td><b>${escapeHtml(p.style)}</b></td><td>${p.orderQty}</td><td>${p.start||'-'}</td><td>${p.end||'-'}</td><td>${bal}</td><td><span class="statuspill ${r==='ON TRACK'||r==='COMPLETE'?'good':r==='WATCH'?'warn':'risk'}">${r}</span></td></tr>`;
+  }).join('')||'<tr><td colspan="6">No planning data.</td></tr>';
+}
+
+/* PM + IE style allocation */
+function refreshHubStyleSelect(){
+  const s=document.getElementById('hubPlanStyle');if(!s)return;
+  const vals=[...new Set([...lbSharedPlanning.map(x=>x.style),...styles.map(x=>x.style)])];
+  s.innerHTML='<option value="">SELECT STYLE</option>'+vals.map(v=>`<option>${escapeHtml(v)}</option>`).join('');
+}
+function saveStyleLineAllocation(){
+  if(!['admin','production_manager','ie'].includes(lbCurrentRole))return alert('Production Manager / IE access required.');
+  const style=document.getElementById('hubPlanStyle').value, ids=document.getElementById('hubLineIds').value.split(',').map(x=>Number(x.trim())).filter(Boolean),qty=Number(document.getElementById('hubLineQty').value)||0,target=Number(document.getElementById('hubTarget').value)||0,start=document.getElementById('hubStart').value,end=document.getElementById('hubEnd').value,seq=Number(document.getElementById('hubSequence').value)||1;
+  if(!style||!ids.length||qty<=0||target<=0)return alert('Select Style, Lines, Planned Qty and Target.');
+  let plan=findPlan(style);if(!plan){plan={style,orderQty:qty,start,end,allocations:[],totalTarget:0};lbSharedPlanning.push(plan);}
+  if(start)plan.start=start;if(end)plan.end=end;
+  const per=Math.floor(qty/ids.length),rem=qty-per*ids.length;
+  ids.forEach((id,i)=>{
+    let l=lines.find(x=>Number(x.id)===id);if(!l){while(!lines.some(x=>Number(x.id)===id))addLine();l=lines.find(x=>Number(x.id)===id);}
+    let stIdx=styles.findIndex(s=>String(s.style).toLowerCase()===style.toLowerCase());if(stIdx<0){styles.push({style,ops:[]});stIdx=styles.length-1;}
+    l.style=String(stIdx);l.target=target;l.plannedQty=per+(i===0?rem:0);l.shipStart=start||l.shipStart||'';l.shipEnd=end||l.shipEnd||'';
+    l.styleQueue=Array.isArray(l.styleQueue)?l.styleQueue:[];l.styleQueue=l.styleQueue.filter(q=>String(q.style).toLowerCase()!==style.toLowerCase());l.styleQueue.push({style,qty:l.plannedQty,target,start,end,sequence:seq});
+    plan.allocations=plan.allocations.filter(a=>Number(a.line)!==id);plan.allocations.push({line:id,qty:l.plannedQty,target,start,end,sequence:seq});
+  });
+  plan.totalTarget=plan.allocations.reduce((a,x)=>a+(Number(x.target)||0),0);
+  saveLbPlanning();autoSave();refreshLines();renderAllocationHub();renderPlanningHub();alert('✅ Style allocated to selected lines. Next step: Auto Line Balance.');
+}
+function lineQueue(l){
+  return (Array.isArray(l.styleQueue)?l.styleQueue:[]).slice().sort((a,b)=>(Number(a.sequence)||0)-(Number(b.sequence)||0));
+}
+function lineRisk(l){
+  const style=l.style!==''&&styles[l.style]?styles[l.style].style:'';
+  const p=findPlan(style);return p?planRisk(p):'NO PLAN';
+}
+function renderAllocationHub(){
+  const tb=document.getElementById('hubLineTable');if(!tb)return;
+  tb.innerHTML=lines.map(l=>{
+    const q=lineQueue(l),cur=q[0]?.style||(l.style!==''&&styles[l.style]?styles[l.style].style:'-'),next=q[1]?.style||'-';
+    const qty=Number(q[0]?.qty||l.plannedQty||0),target=Number(q[0]?.target||l.target||0),r=lineRisk(l),ship=q[0]?.end||l.shipEnd||'-';
+    return `<tr><td>Line ${l.id}</td><td><b>${escapeHtml(cur)}</b></td><td>${escapeHtml(next)}</td><td>${qty}</td><td>${target}</td><td>${ship}</td><td><span class="statuspill ${r==='ON TRACK'||r==='COMPLETE'?'good':r==='WATCH'?'warn':'risk'}">${r}</span></td></tr>`;
+  }).join('')||'<tr><td colspan="7">No lines.</td></tr>';
+}
+function runHubAutoBalance(){
+  if(!['admin','production_manager','ie'].includes(lbCurrentRole))return alert('Production Manager / IE access required.');
+  showScreen('main');setTimeout(()=>{autoBalance();alert('✅ Auto Line Balance completed using the selected line/style data.');},100);
+}
+
+/* Supervisor portal */
+function supervisorLineRows(){
+  const line=lbLineOf(currentUser);return line?lines.filter(l=>Number(l.id)===Number(line)):lines;
+}
+function supervisorStyleInfo(l){
+  const q=lineQueue(l),current=q[0]?.style||(l.style!==''&&styles[l.style]?styles[l.style].style:'-'),next=q[1]?.style||'-',future=q.slice(2).map(x=>x.style).join(', ')||'-';
+  const plan=findPlan(current),prod=production.filter(p=>String(p.line)===String(l.id)).reduce((a,p)=>a+(Number(p.actual)||0),0),balance=plan?Math.max(0,Number(plan.orderQty)-getProducedForStyle(plan.style)):0;
+  return {current,next,future,plan,prod,balance};
+}
+function supervisorLineMessage(l){
+  const x=supervisorStyleInfo(l),r=lastLineReport.find(a=>Number(a.line)===Number(l.id)),alloc=(lastAllocation||[]).filter(a=>Number(a.line)===Number(l.id));
+  let msg=`LINE BALANCING APP - LINE ${l.id}\nDate: ${todayISO()}\nCurrent Style: ${x.current}\nNext Style: ${x.next}\nOrder Balance: ${x.balance}\nTarget: ${r?.targetQty||l.target||0} pcs/day\nActual: ${x.prod} pcs\nEfficiency: ${r?.eff||l.eff||0}%\nOperators: ${alloc.length}\nShipment End: ${x.plan?.end||l.shipEnd||'-'}\nShipment Risk: ${x.plan?planRisk(x.plan):'NO PLAN'}\n\nOPERATOR ALLOCATION\n`;
+  alloc.forEach(a=>msg+=`${a.operatorId} - ${a.operatorName} | ${a.operation} | Eff ${a.eff}%\n`);
+  msg+=`\nMechanic: ${(window.findMechanicForLine&&window.findMechanicForLine(l.id))?'Assigned':'Check mechanic allocation'}`;
+  return msg;
+}
+function renderSupervisorPortal(){
+  const root=document.getElementById('supervisorPortal');if(!root)return;
+  const role=lbCurrentRole||lbRoleOf(currentUser),ls=supervisorLineRows();
+  if(role==='supervisor'&&!lbLineOf(currentUser)){root.innerHTML='<div class="card"><b>No Line Assigned.</b><p>Admin must assign a line to this Supervisor login.</p></div>';return;}
+  if(role!=='supervisor'&&role!=='admin'){root.innerHTML='<div class="card"><b>Supervisor portal is for Supervisor logins.</b></div>';return;}
+  document.getElementById('supPortalSubtitle').textContent=role==='supervisor'?'Line '+lbLineOf(currentUser)+' complete view — other lines are hidden.':'Admin preview — all lines.';
+  root.innerHTML=ls.map(l=>{
+    const x=supervisorStyleInfo(l),r=lastLineReport.find(a=>Number(a.line)===Number(l.id)),alloc=(lastAllocation||[]).filter(a=>Number(a.line)===Number(l.id)),bd=(breakdowns||[]).filter(b=>Number(b.line)===Number(l.id)&&String(b.status).toUpperCase()!=='CLOSED'),risk=x.plan?planRisk(x.plan):'NO PLAN';
+    return `<div class="card"><div class="super-hero"><h2>LINE ${l.id}</h2><p>Current: <b>${escapeHtml(x.current)}</b> • Next: <b>${escapeHtml(x.next)}</b> • Future: ${escapeHtml(x.future)}</p></div>
+    <div class="sup-grid">
+      <div class="sup-kpi"><small>Order Balance</small><b>${x.balance}</b></div>
+      <div class="sup-kpi"><small>Target / Day</small><b>${r?.targetQty||l.target||0}</b></div>
+      <div class="sup-kpi"><small>Actual Today</small><b>${x.prod}</b></div>
+      <div class="sup-kpi"><small>Efficiency</small><b>${r?.eff||l.eff||0}%</b></div>
+    </div>
+    <div class="panel"><h3>📦 Style & Shipment</h3><table><tr><th>Current Style</th><th>Next Style</th><th>Shipment Start</th><th>Shipment End</th><th>Risk</th></tr><tr><td>${escapeHtml(x.current)}</td><td>${escapeHtml(x.next)}</td><td>${x.plan?.start||l.shipStart||'-'}</td><td>${x.plan?.end||l.shipEnd||'-'}</td><td><span class="statuspill ${risk==='ON TRACK'||risk==='COMPLETE'?'good':risk==='WATCH'?'warn':'risk'}">${risk}</span></td></tr></table></div>
+    <div class="panel"><h3>👥 Operator Allocation</h3><div class="tablewrap"><table><tr><th>Operator</th><th>Operation</th><th>SAM</th><th>Efficiency</th><th>Status</th></tr>${alloc.map(a=>`<tr><td>${escapeHtml(a.operatorId)} - ${escapeHtml(a.operatorName)}</td><td>${escapeHtml(a.operation)}</td><td>${a.sam}</td><td>${a.eff}%</td><td>${a.replacementToday?'REPLACEMENT':'ALLOCATED'}</td></tr>`).join('')||'<tr><td colspan="5">No allocation yet.</td></tr>'}</table></div>
+    <div class="super-actions"><button class="green" onclick="sendWhatsApp((supervisorContacts.find(x=>Number(x.line)===Number(${l.id}))||{}).mobile,supervisorLineMessage(lines.find(x=>Number(x.id)===Number(${l.id}))))">📲 SEND DAILY OPERATOR ALLOCATION</button></div></div>
+    <div class="panel"><h3>📝 Daily Actual Production</h3><div class="three"><input id="supDate${l.id}" type="date" value="${todayISO()}"><input id="supActual${l.id}" type="number" min="0" placeholder="Actual Production"><input id="supMp${l.id}" type="number" min="0" placeholder="Actual Manpower"><input id="supWip${l.id}" type="number" min="0" placeholder="WIP"><input id="supBd${l.id}" type="number" min="0" placeholder="Breakdown Minutes"><input id="supRemarks${l.id}" placeholder="Remarks"></div><button class="primary" onclick="saveSupervisorDaily(${l.id})">💾 SAVE DAILY ACTUAL</button></div>
+    <div class="panel"><h3>🔧 Mechanic / Breakdown</h3><p>Open breakdowns: <b>${bd.length}</b> • Assigned mechanic: <b>${window.findMechanicForLine&&window.findMechanicForLine(l.id)?'YES':'NOT ASSIGNED'}</b></p></div>
+    </div>`;
+  }).join('');
+}
+window.saveSupervisorDaily=function(line){
+  const actual=Number(document.getElementById('supActual'+line)?.value)||0,mp=Number(document.getElementById('supMp'+line)?.value)||0,wip=Number(document.getElementById('supWip'+line)?.value)||0,bd=Number(document.getElementById('supBd'+line)?.value)||0,remarks=document.getElementById('supRemarks'+line)?.value||'',date=document.getElementById('supDate'+line)?.value||todayISO();
+  const l=lines.find(x=>Number(x.id)===Number(line)),r=lastLineReport.find(x=>Number(x.line)===Number(line));const target=Number(r?.targetQty||l?.target||0);
+  const eff=target?Math.round(actual/target*100):0;
+  production.push({id:Date.now(),line:String(line),hour:'Daily',target,actual,eff,wip,manpower:mp,breakdown:bd,remarks,date,enteredBy:currentUser});
+  const ord=orders.find(o=>String(o.line)===String(line));if(ord)ord.produced=(Number(ord.produced)||0)+actual;
+  autoSave();renderProduction();drawHome();renderSupervisorPortal();renderPlanningHub();
+  alert('✅ Line '+line+' daily actual saved. Dashboard and shipment status updated.');
+};
+
+/* Admin role metadata init for old users */
+function initLbRoles(){
+  try{const x=JSON.parse(localStorage.getItem(LB_ROLE_KEY)||'{}'); lbRoleMeta=(x&&typeof x==='object')?x:{};}catch(e){lbRoleMeta={};}
+  USERS=readUsers();
+  Object.keys(USERS).forEach(k=>{
+    if(!lbRoleMeta[k.toLowerCase()]){
+      const role=userRole(USERS[k]);lbRoleMeta[k.toLowerCase()]={role:role==='admin'?'admin':(k.toLowerCase().startsWith('line')?'supervisor':'supervisor'),line:k.toLowerCase().startsWith('line')?(Number(k.replace(/\D/g,''))||null):null};
+    }
+  });
+  saveLbRoleMeta();
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  initLbRoles();
+  setTimeout(()=>{refreshHubStyleSelect();renderPlanningHub();renderAllocationHub();renderRoleUsers();},200);
+});
+</script>
+
+<script>
+/* AUTH STABILITY PATCH v2
+   Keeps the existing app/modules. Only repairs login, forgot/reset password,
+   and create-user flow so they work even when localStorage is unavailable. */
+(function(){
+  const AUTH_DEFAULTS={admin:'admin123',line01:'line01',line02:'line02',line03:'line03'};
+  function authRead(){
+    try{
+      const raw=localStorage.getItem('lineBalancingUsers');
+      if(raw){ const x=JSON.parse(raw); if(x && typeof x==='object') return x; }
+    }catch(e){}
+    return Object.assign({},AUTH_DEFAULTS);
+  }
+  function authWrite(obj){
+    try{ localStorage.setItem('lineBalancingUsers',JSON.stringify(obj)); return true; }catch(e){ return false; }
+  }
+  function authPass(v){ return (v && typeof v==='object') ? String(v.password||'') : String(v??''); }
+  function authKey(obj,id){
+    const q=String(id||'').trim().toLowerCase();
+    return Object.keys(obj).find(k=>String(k).toLowerCase()===q)||null;
+  }
+  function msg(t){ const el=document.getElementById('loginMsg'); if(el)el.textContent=t; }
+
+  window.showResetPassword=function(){
+    const box=document.getElementById('resetBox');
+    if(!box)return;
+    box.style.display=(box.style.display==='block')?'none':'block';
+    msg('');
+    const id=(document.getElementById('loginUser')||{}).value||'';
+    const ru=document.getElementById('resetUser');
+    if(ru && id.trim()) ru.value=id.trim();
+    if(box.style.display==='block' && ru) setTimeout(()=>ru.focus(),50);
+  };
+
+  window.resetPassword=function(){
+    try{
+      let users=authRead();
+      const u=(document.getElementById('resetUser')||{}).value?.trim()||'';
+      const p=(document.getElementById('resetNewPass')||{}).value||'';
+      const c=(document.getElementById('resetConfirmPass')||{}).value||'';
+      if(!u||!p||!c){msg('Enter User ID, New Password and Confirm Password.');return;}
+      const key=authKey(users,u);
+      if(!key){msg('User ID not found.');return;}
+      if(p.length<4){msg('Password must be at least 4 characters.');return;}
+      if(p!==c){msg('New passwords do not match.');return;}
+      const old=users[key];
+      users[key]=(old&&typeof old==='object')?Object.assign({},old,{password:p}):p;
+      const ok=authWrite(users);
+      USERS=users;
+      const lu=document.getElementById('loginUser'),lp=document.getElementById('loginPass');
+      if(lu)lu.value=key; if(lp)lp.value='';
+      ['resetUser','resetNewPass','resetConfirmPass'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+      const box=document.getElementById('resetBox');if(box)box.style.display='none';
+      msg(ok?'✅ Password reset successful. Enter the new password and tap LOGIN.':'✅ Password reset for this session. Open the app in Safari/Chrome or your hosted website for permanent saving.');
+    }catch(e){msg('Reset failed: '+e.message);}
+  };
+
+  window.showCreateUserScreen=function(){
+    const login=document.getElementById('loginScreen'),box=document.getElementById('createUserScreen');
+    if(login)login.style.display='none';
+    if(box)box.style.display='flex';
+    const m=document.getElementById('createUserMsg');if(m)m.textContent='';
+  };
+  window.hideCreateUserScreen=function(){
+    const box=document.getElementById('createUserScreen'),login=document.getElementById('loginScreen');
+    if(box)box.style.display='none'; if(login)login.style.display='flex';
+  };
+
+  window.createUserFromScreen=function(){
+    try{
+      let users=authRead();
+      const admin=(document.getElementById('createAdminId')||{}).value?.trim()||'';
+      const apass=(document.getElementById('createAdminPass')||{}).value||'';
+      const u=(document.getElementById('createNewUser')||{}).value?.trim()||'';
+      const p=(document.getElementById('createNewPass')||{}).value||'';
+      const cp=(document.getElementById('createConfirmPass')||{}).value||'';
+      const role=(document.getElementById('createRole')||{}).value||'supervisor';
+      const m=document.getElementById('createUserMsg');
+      const adminKey=authKey(users,admin);
+      if(!adminKey || adminKey.toLowerCase()!=='admin' || authPass(users[adminKey])!==apass){if(m)m.textContent='❌ Admin ID or password is incorrect.';return;}
+      if(!u||!p){if(m)m.textContent='Enter new User ID and Password.';return;}
+      if(p.length<4){if(m)m.textContent='Password must be at least 4 characters.';return;}
+      if(p!==cp){if(m)m.textContent='Passwords do not match.';return;}
+      if(authKey(users,u)){if(m)m.textContent='User ID already exists.';return;}
+      users[u]={password:p,role:role};
+      const ok=authWrite(users); USERS=users;
+      if(typeof lbRoleMeta!=='undefined'){
+        lbRoleMeta[u.toLowerCase()]={role:role,line:null};
+        if(typeof saveLbRoleMeta==='function')saveLbRoleMeta();
+      }
+      ['createNewUser','createNewPass','createConfirmPass','createAdminPass'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+      if(typeof renderUsers==='function')renderUsers();
+      if(typeof renderRoleUsers==='function')renderRoleUsers();
+      if(m)m.textContent=ok?'✅ User created successfully: '+u:'⚠️ User created for this session. Browser storage is blocked, so permanent saving needs Safari/Chrome/hosted app.';
+    }catch(e){const m=document.getElementById('createUserMsg');if(m)m.textContent='Create user failed: '+e.message;}
+  };
+
+  window.login=function(){
+    try{
+      const u=(document.getElementById('loginUser')||{}).value?.trim()||'';
+      const p=(document.getElementById('loginPass')||{}).value||'';
+      if(!u||!p){msg('Enter User ID and Password.');return;}
+      const users=authRead(),key=authKey(users,u);
+      if(!key||authPass(users[key])!==p){msg('❌ Invalid User ID or Password.');return;}
+      USERS=users; currentUser=key; window.currentUser=key;
+      if(typeof initLbRoles==='function')initLbRoles();
+      if(typeof lbRoleOf==='function')lbCurrentRole=lbRoleOf(key); else lbCurrentRole=userRole(users[key]);
+      try{localStorage.setItem('lineBalancingCurrentUser',key);}catch(e){}
+      const loginScreen=document.getElementById('loginScreen');if(loginScreen)loginScreen.style.display='none';
+      try{ if(typeof loadUserData==='function')loadUserData(); }catch(e){ console.warn('loadUserData:',e); }
+      try{ if(typeof initAllocationDate==='function')initAllocationDate(); }catch(e){}
+      try{ if(typeof applyLbRoleUI==='function')applyLbRoleUI(); else if(typeof showScreen==='function')showScreen('home'); }catch(e){
+        document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active'));
+        const home=document.getElementById('homeScreen');if(home)home.classList.add('active');
+      }
+      if(typeof renderUsers==='function')renderUsers();
+      if(typeof renderRoleUsers==='function')renderRoleUsers();
+      if(typeof renderPlanningHub==='function')renderPlanningHub();
+      if(typeof refreshHubStyleSelect==='function')refreshHubStyleSelect();
+      if(typeof renderAllocationHub==='function')renderAllocationHub();
+      if(typeof renderSupervisorPortal==='function')renderSupervisorPortal();
+    }catch(e){
+      msg('Login error: '+e.message);
+      const loginScreen=document.getElementById('loginScreen');if(loginScreen)loginScreen.style.display='flex';
+    }
+  };
+
+  window.logout=function(){
+    try{if(typeof saveUserData==='function')saveUserData();}catch(e){}
+    currentUser='';window.currentUser='';lbCurrentRole='';
+    try{localStorage.removeItem('lineBalancingCurrentUser');}catch(e){}
+    ['loginUser','loginPass'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+    msg('');
+    const login=document.getElementById('loginScreen');if(login)login.style.display='flex';
+  };
+})();
+</script>
+<script>
+/* AUTH FINAL FALLBACK - guarantees default admin login even if storage is blocked */
+(function(){
+  window.__AUTH_READY__=true;
+  window.login=function(){
+    const u=(document.getElementById('loginUser')?.value||'').trim();
+    const p=document.getElementById('loginPass')?.value||'';
+    const msg=document.getElementById('loginMsg');
+    if(!u||!p){if(msg)msg.textContent='Enter User ID and Password.';return;}
+    let users={admin:'admin123',line01:'line01',line02:'line02',line03:'line03'};
+    try{const raw=localStorage.getItem('lineBalancingUsers');if(raw){const x=JSON.parse(raw);if(x&&typeof x==='object')users=x;}}catch(e){}
+    const key=Object.keys(users).find(k=>k.toLowerCase()===u.toLowerCase());
+    const pass=key ? ((users[key]&&typeof users[key]==='object')?String(users[key].password||''):String(users[key])) : '';
+    if(!key || pass!==p){if(msg)msg.textContent='❌ Invalid User ID or Password.';return;}
+    currentUser=key; window.currentUser=key;
+    try{lbCurrentRole=typeof lbRoleOf==='function'?lbRoleOf(key):((key.toLowerCase()==='admin')?'admin':'supervisor');}catch(e){lbCurrentRole=key.toLowerCase()==='admin'?'admin':'supervisor';}
+    try{localStorage.setItem('lineBalancingCurrentUser',key);}catch(e){}
+    const ls=document.getElementById('loginScreen');if(ls)ls.style.display='none';
+    try{if(typeof loadUserData==='function')loadUserData();}catch(e){}
+    try{if(typeof applyLbRoleUI==='function')applyLbRoleUI();else if(typeof showScreen==='function')showScreen('home');}catch(e){document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active'));document.getElementById('homeScreen')?.classList.add('active');}
+  };
 })();
 </script>
 </body>
