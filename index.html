@@ -178,7 +178,7 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <div class="hero"><h1>📲 Supervisor & Management SEND</h1><p>Register line supervisors and management staff. After Auto Balance, SEND opens WhatsApp with the correct current allocation link.</p></div>
 <div class="card"><h2>👤 LINE SUPERVISORS</h2><div class="production-form"><div class="three"><select id="contactLine"><option value="">SELECT LINE</option></select><input id="supervisorName" placeholder="Supervisor Name"><input id="supervisorMobile" placeholder="Mobile Number"></div><button class="green" onclick="saveSupervisorContact()" style="margin-top:10px">SAVE SUPERVISOR</button></div><div id="supervisorContactList" style="margin-top:12px"></div></div>
 <div class="card"><h2>🏢 MANAGEMENT STAFF</h2><div class="production-form"><div class="three"><input id="managerName" placeholder="Management Staff Name"><input id="managerDesignation" placeholder="Designation (FM / QM / IE / Manager)"><input id="managerMobile" placeholder="Mobile Number"></div><button class="green" onclick="saveManagementContact()" style="margin-top:10px">SAVE MANAGEMENT STAFF</button></div><div id="managementContactList" style="margin-top:12px"></div></div>
-<div class="card"><h2>🚀 SEND CURRENT ALLOCATION</h2><p class="small">No Copy / Share button. SEND only. Supervisor receives only their line; management receives all current line allocations.</p><div id="sendAllocationList"></div></div>
+<div class="card"><h2>🚀 SEND CURRENT ALLOCATION</h2><p class="small">Use SEND TO ALL to open WhatsApp chats for registered contacts. Individual SEND buttons remain available.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><button class="primary" onclick="sendAllAllocations('supervisors')">📲 SEND TO ALL SUPERVISORS</button><button class="primary" onclick="sendAllAllocations('management')">📲 SEND TO ALL MANAGEMENT</button><button class="green" onclick="sendAllAllocations('all')">📲 SEND TO EVERYONE</button></div><div id="sendAllMsg" class="small"></div><div id="sendAllocationList"></div></div>
 </div>
 
 <div id="breakdownScreen" class="app-screen">
@@ -227,6 +227,11 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <button class="primary" onclick="changeMyUsername()" style="margin-top:10px">💾 SAVE NEW USERNAME</button>
 <div id="profileMsg" class="small" style="margin-top:10px"></div></div>
 </div>
+<div class="card"><h2>🔐 CHANGE MY PASSWORD</h2><div class="production-form"><div class="three">
+<input id="profileOldPass" type="password" placeholder="Current Password">
+<input id="profileNewPass" type="password" placeholder="New Password (min 4 characters)">
+<input id="profileConfirmPass" type="password" placeholder="Confirm New Password">
+</div><button class="green" onclick="changeMyPassword()" style="margin-top:10px">🔒 SAVE NEW PASSWORD</button><div id="passwordMsg" class="small" style="margin-top:10px"></div></div></div>
 </div>
 
 <div id="homeScreen" class="app-screen active">
@@ -240,7 +245,6 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
   </div>
   <div class="card"><h2>📌 Management Summary</h2><div class="stats" id="homeStats"></div></div>
   <div class="card"><h2>🎯 Line Status — Efficiency & Auto Target</h2><div class="tablewrap"><table><thead><tr><th>Line</th><th>Style</th><th>Auto Target Qty</th><th>Est./Hour</th><th>Actual</th><th>Achievement</th><th>Efficiency</th><th>Status</th></tr></thead><tbody id="homeLineTable"></tbody></table></div></div>
-  <div class="card"><h2>🛠️ Manager Breakdown Summary — Open Problems</h2><p class="small">Open and in-progress line stoppages, operation/machine problems and downtime.</p><div id="homeBreakdownSummary"></div></div>
 </div>
 
 <div id="ordersScreen" class="app-screen">
@@ -523,6 +527,19 @@ function changeMyUsername(){
  msg.textContent='✅ Username changed successfully. Your existing data was kept.';
  renderUsers();
 }
+function changeMyPassword(){
+ if(!currentUser)return alert('Please log in first.');
+ USERS=readUsers(); const key=Object.keys(USERS).find(k=>k.toLowerCase()===String(currentUser).toLowerCase());
+ const oldP=document.getElementById('profileOldPass').value,newP=document.getElementById('profileNewPass').value,confirmP=document.getElementById('profileConfirmPass').value,msg=document.getElementById('passwordMsg');
+ if(!key){msg.textContent='Current user was not found.';return;}
+ if(userPassword(USERS[key])!==oldP){msg.textContent='Current password is incorrect.';return;}
+ if(newP.length<4){msg.textContent='New password must be at least 4 characters.';return;}
+ if(newP!==confirmP){msg.textContent='New passwords do not match.';return;}
+ const oldVal=USERS[key]; USERS[key]=(oldVal&&typeof oldVal==='object')?{...oldVal,password:newP}:newP;
+ if(!saveUsers()){USERS[key]=oldVal;msg.textContent='Could not save password in this browser.';return;}
+ ['profileOldPass','profileNewPass','profileConfirmPass'].forEach(id=>document.getElementById(id).value=''); msg.textContent='✅ Password changed successfully.';
+}
+
 function deleteUserAccount(username){
  if(currentUser!=='admin')return alert('Admin login required.');
  const key=Object.keys(USERS).find(k=>k.toLowerCase()===String(username).toLowerCase());
@@ -962,7 +979,6 @@ function rebuildReportsFromAllocation(){
     lineReport.push({line:l.id,style:st.style,required,allocated,shortage:Math.max(0,required-allocated),eff,balance,targetQty:daily,hourlyQty:hourly,dailyQty:daily,baseHourlyQty:Math.floor(baseHourly)});
   });
   lastLineReport=lineReport;
-  drawHome();
   const totalReq=lineReport.reduce((a,r)=>a+r.required,0), totalAlloc=rows.length, totalShort=Math.max(0,totalReq-totalAlloc), extra=presentOps.filter(o=>!used.has(String(o.id)));
   document.getElementById('balanceSummary').innerHTML=`<div class="stats"><div class="stat">LINES<b>${active.length}</b></div><div class="stat">REQUIRED<b>${totalReq}</b></div><div class="stat">ALLOCATED<b>${totalAlloc}</b></div><div class="stat">${totalShort?'SHORTAGE':'EXTRA'}<b>${totalShort||extra.length}</b></div><div class="stat">EST. HOURLY QTY<b>${lineReport.reduce((a,r)=>a+r.hourlyQty,0)}</b></div><div class="stat">EST. DAILY QTY<b>${lineReport.reduce((a,r)=>a+r.dailyQty,0)}</b></div></div>`;
   document.getElementById('balanceMsg').textContent=totalShort?`SHORTAGE: ${totalShort} operator assignments could not be filled.`:`EXTRA OPERATORS: ${extra.length} present operators are not required for the selected lines.`;
@@ -1213,33 +1229,10 @@ function drawProductionChart(){
  const by={};production.forEach(p=>{by[p.line]=(by[p.line]||0)+(Number(p.actual)||0)});const arr=Object.entries(by);const max=Math.max(...arr.map(x=>x[1]),1),bw=Math.min(90,(c.width-90)/Math.max(arr.length,1)-15);arr.forEach((x,i)=>{const xx=55+i*(bw+15),h=x[1]/max*170;ctx.fillStyle=['#2563eb','#16a34a','#f59e0b','#dc2626','#7c3aed','#0891b2'][i%6];ctx.fillRect(xx,215-h,bw,h);ctx.fillStyle='#17202a';ctx.fillText('Line '+x[0],xx,235);ctx.fillText(String(x[1]),xx+10,205-h);});
 }
 function drawHome(){
- const box=document.getElementById('homeStats');if(!box)return;
- const active=activeLines();
- const presentCount=attendanceTotal.size?present.size:operators.length;
- const required=lastLineReport.length?lastLineReport.reduce((a,r)=>a+(Number(r.required)||0),0):active.reduce((a,l)=>a+(styles[l.style]?.ops||[]).reduce((n,op)=>n+Math.max(1,Math.floor(Number(op.qty)||1)),0),0);
- const alloc=lastAllocation.length;
- const shortage=lastLineReport.length?lastLineReport.reduce((a,r)=>a+(Number(r.shortage)||0),0):Math.max(0,required-alloc);
- const extra=Math.max(0,presentCount-alloc);
- const avg=lastLineReport.length?Math.round(lastLineReport.reduce((a,r)=>a+(Number(r.eff)||0),0)/lastLineReport.length):0;
- const target=lastLineReport.length?lastLineReport.reduce((a,r)=>a+(Number(r.targetQty)||0),0):active.reduce((a,l)=>a+(Number(l.autoTargetQty)||0),0);
- const actual=production.reduce((a,p)=>a+(Number(p.actual)||0),0);
- const achievement=target?Math.round(actual/target*100):0;
- const balance=required?Math.round(alloc/required*100):0;
- const balanced=lastLineReport.filter(r=>Number(r.shortage)===0 && Number(r.required)>0).length;
- const openBreakdowns=(breakdowns||[]).filter(b=>!['CLOSED','RESOLVED'].includes(String(b.status||'OPEN').toUpperCase()));
- box.innerHTML=`<div class="stat">LINES<b>${active.length||lines.length}</b></div><div class="stat">PRESENT<b>${presentCount}</b></div><div class="stat">ALLOCATED<b>${alloc}</b></div><div class="stat">SHORTAGE<b>${shortage}</b></div><div class="stat">EXTRA<b>${extra}</b></div><div class="stat">AVG EFF<b>${avg}%</b></div><div class="stat">BALANCE<b>${balance}%</b></div><div class="stat">BALANCED LINES<b>${balanced}</b></div><div class="stat">TODAY TARGET<b>${target}</b></div><div class="stat">TODAY ACTUAL<b>${actual}</b></div><div class="stat">ACHIEVEMENT<b>${achievement}%</b></div><div class="stat">OPEN BREAKDOWNS<b>${openBreakdowns.length}</b></div>`;
- const tb=document.getElementById('homeLineTable');if(!tb)return;
- tb.innerHTML=lines.map(l=>{const r=lastLineReport.find(x=>String(x.line)===String(l.id))||{};const styleName=r.style||(l.style!==''&&styles[l.style]?styles[l.style].style:'-');const autoTarget=Number(r.targetQty??l.autoTargetQty)||0;const hourly=Number(r.hourlyQty??l.hourlyQty)||0;const a=production.filter(p=>String(p.line)===String(l.id)).reduce((n,p)=>n+(Number(p.actual)||0),0);const ach=autoTarget?Math.round(a/autoTarget*100):0;const eff=Number(r.eff??l.eff)||0;const status=shortLineStatus(l.id,r,openBreakdowns);return `<tr><td>${l.id}</td><td>${escapeHtml(styleName)}</td><td><b>${autoTarget}</b></td><td>${hourly}</td><td>${a}</td><td>${ach}%</td><td><b>${eff}%</b></td><td><span class="statuspill ${status.cls}">${status.label}</span></td></tr>`}).join('')||'<tr><td colspan="8">No lines.</td></tr>';
- const btb=document.getElementById('homeBreakdownSummary');if(btb){btb.innerHTML=openBreakdowns.length?`<div class="tablewrap"><table><thead><tr><th>Date</th><th>Line</th><th>Operation / Machine</th><th>Problem</th><th>Downtime</th><th>Status</th></tr></thead><tbody>${openBreakdowns.slice().sort((a,b)=>Number(b.id)-Number(a.id)).slice(0,8).map(b=>`<tr><td>${escapeHtml(b.date||'-')}</td><td>Line ${escapeHtml(b.line)}</td><td>${escapeHtml(b.operation||'-')}</td><td>${escapeHtml(b.reason||'-')}</td><td>${Number(b.minutes)||0} min</td><td>${escapeHtml(b.status||'OPEN')}</td></tr>`).join('')}</tbody></table></div><button class="primary" onclick="showScreen('breakdown')" style="margin-top:8px">OPEN BREAKDOWN MANAGEMENT</button>`:'<div class="empty-state">No open line breakdowns reported.</div>';}
+ const box=document.getElementById('homeStats');if(!box)return; const active=activeLines(); const presentCount=attendanceTotal.size?present.size:operators.length; const req=lastLineReport.reduce((a,r)=>a+r.required,0),alloc=lastLineReport.reduce((a,r)=>a+r.allocated,0),avg=lastLineReport.length?Math.round(lastLineReport.reduce((a,r)=>a+r.eff,0)/lastLineReport.length):0; const target=lines.reduce((a,l)=>a+(Number(l.target)||0),0),actual=production.reduce((a,p)=>a+(Number(p.actual)||0),0); const ach=target?Math.round(actual/target*100):0;
+ box.innerHTML=`<div class="stat">LINES<b>${active.length}</b></div><div class="stat">PRESENT<b>${presentCount}</b></div><div class="stat">ALLOCATED<b>${alloc}</b></div><div class="stat">SHORTAGE<b>${Math.max(0,req-alloc)}</b></div><div class="stat">AVG EFF<b>${avg}%</b></div><div class="stat">TODAY TARGET<b>${target}</b></div><div class="stat">TODAY ACTUAL<b>${actual}</b></div><div class="stat">ACHIEVEMENT<b>${ach}%</b></div>`;
+ const tb=document.getElementById('homeLineTable'); if(!tb)return;tb.innerHTML=lines.map(l=>{const r=lastLineReport.find(x=>Number(x.line)===Number(l.id))||{eff:l.eff||0,targetQty:l.autoTargetQty||0,hourlyQty:l.hourlyQty||0};const autoTarget=Number(r.targetQty||l.autoTargetQty||0);const t=autoTarget||Number(l.target||0);const a=production.filter(p=>String(p.line)===String(l.id)).reduce((a,p)=>a+(Number(p.actual)||0),0);const ach=t?Math.round(a/t*100):0;return `<tr><td>${l.id}</td><td>${l.style!==''&&styles[l.style]?styles[l.style].style:'-'}</td><td><b>${autoTarget}</b></td><td>${Number(r.hourlyQty||l.hourlyQty||0)}</td><td>${a}</td><td>${ach}%</td><td><b>${r.eff||0}%</b></td><td><span class="statuspill ${l.status==='Running'?'run':l.status==='Hold'?'hold':'closed'}">${l.status}</span></td></tr>`}).join('')||'<tr><td colspan="8">No lines.</td></tr>';
 }
-function shortLineStatus(lineId,r,openBreakdowns){
- if((openBreakdowns||[]).some(b=>String(b.line)===String(lineId)))return {label:'BREAKDOWN',cls:'risk'};
- if(Number(r.shortage)>0)return {label:'SHORTAGE',cls:'risk'};
- if(Number(r.required)>0&&Number(r.allocated)>=Number(r.required))return {label:'BALANCED',cls:'good'};
- const l=lines.find(x=>String(x.id)===String(lineId));
- return {label:l?.status||'PENDING',cls:l?.status==='Running'?'run':l?.status==='Hold'?'hold':'closed'};
-}
-
 function downloadDashboardReport(){
  if(typeof XLSX==='undefined') return alert('Excel library not loaded.');
  const report=(lastLineReport||[]).map(r=>({
@@ -1769,12 +1762,12 @@ function saveBreakdown(){
  const start=document.getElementById('breakStart')?.value,end=document.getElementById('breakEnd')?.value,minutes=Number(document.getElementById('breakMinutes')?.value||0),action=document.getElementById('breakAction')?.value.trim(),status=document.getElementById('breakStatus')?.value||'OPEN';
  if(!line||!operation||!reason)return alert('Enter Line, Operation / Machine and Breakdown Reason.');
  breakdowns.push({id:Date.now(),date:todayISO(),line:Number(line),operation,reason,start,end,minutes,action,status,reportedBy:currentUser||'Supervisor'});
- autoSave(); renderBreakdowns(); renderBreakdownSend(); drawHome();
+ autoSave(); renderBreakdowns(); renderBreakdownSend();
  ['breakOperation','breakReason','breakStart','breakEnd','breakMinutes','breakAction'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
  document.getElementById('breakStatus').value='OPEN';
  alert('✅ Line breakdown saved.');
 }
-function deleteBreakdown(id){if(!confirm('Delete this breakdown record?'))return; breakdowns=breakdowns.filter(x=>String(x.id)!==String(id));autoSave();renderBreakdowns();renderBreakdownSend();drawHome();}
+function deleteBreakdown(id){if(!confirm('Delete this breakdown record?'))return; breakdowns=breakdowns.filter(x=>String(x.id)!==String(id));autoSave();renderBreakdowns();renderBreakdownSend();}
 function breakdownText(item){
  if(!item)return 'LINE BREAKDOWN\nNo breakdown record available.';
  return 'LINE BALANCING APP\nLINE BREAKDOWN REPORT\nDate: '+(item.date||todayISO())+'\nLine: '+item.line+'\nOperation / Machine: '+item.operation+'\nReason: '+item.reason+'\nStart: '+(item.start||'-')+'\nEnd: '+(item.end||'-')+'\nDowntime: '+(item.minutes||0)+' min\nStatus: '+(item.status||'-')+'\nAction / Remarks: '+(item.action||'-')+'\nReported By: '+(item.reportedBy||'-');
@@ -1843,6 +1836,17 @@ function renderSendAllocation(){
  const mg=managementContacts.map((x,i)=>'<div class="linebox"><b>'+x.designation+'</b> — '+x.name+' <span class="muted">'+x.mobile+'</span><button class="green" style="float:right" onclick="sendWhatsApp(\''+x.mobile+'\',allocationMessage(null))">SEND</button><div class="small" style="margin-top:8px">Full current allocation for all lines.</div></div>').join('');
  root.innerHTML=(su||'<div class="small">No supervisor contacts registered.</div>')+'<hr style="margin:14px 0;border:0;border-top:1px solid #ddd">'+(mg||'<div class="small">No management contacts registered.</div>');
 }
+function sendAllAllocations(group){
+ const targets=[];
+ if(group==='supervisors'||group==='all')supervisorContacts.forEach(x=>targets.push({mobile:x.mobile,text:allocationMessage(x.line)}));
+ if(group==='management'||group==='all')managementContacts.forEach(x=>targets.push({mobile:x.mobile,text:allocationMessage(null)}));
+ const msg=document.getElementById('sendAllMsg');
+ if(!targets.length){if(msg)msg.textContent='No contacts registered for this selection.';return;}
+ if(!confirm('Open WhatsApp chat for '+targets.length+' contact(s)? You must tap Send in each chat.'))return;
+ targets.forEach((x,i)=>{const url='https://wa.me/'+normalizeMobile(x.mobile)+'?text='+encodeURIComponent(x.text);setTimeout(()=>window.open(url,'_blank'),i*350);});
+ if(msg)msg.textContent='WhatsApp chat links opened for '+targets.length+' contact(s). Tap Send in each chat; the browser may block multiple tabs.';
+}
+
 </script>
 
 <script>
@@ -2122,10 +2126,16 @@ function renderRoleUsers(){
   }).join('');
 }
 window.removeRoleUser=function(k){
-  if(lbCurrentRole!=='admin')return alert('Admin login required.');
-  if(String(k).toLowerCase()==='admin')return alert('Admin cannot be deleted.');
-  if(!confirm('Delete '+k+'?'))return;
-  delete USERS[k];saveUsers();delete lbRoleMeta[String(k).toLowerCase()];saveLbRoleMeta();renderRoleUsers();
+  if((lbCurrentRole||lbRoleOf(currentUser))!=='admin')return alert('Admin login required.');
+  const actual=Object.keys(USERS||{}).find(x=>x.toLowerCase()===String(k).toLowerCase());
+  if(!actual)return alert('User not found. Refresh the User Access Matrix and try again.');
+  if(actual.toLowerCase()==='admin')return alert('Admin cannot be deleted.');
+  if(!confirm('Delete user '+actual+'? Their account and saved app data on this browser will be deleted.'))return;
+  USERS=readUsers(); const keyNow=Object.keys(USERS).find(x=>x.toLowerCase()===actual.toLowerCase());
+  if(!keyNow)return alert('User not found.');
+  delete USERS[keyNow]; saveUsers(); delete lbRoleMeta[keyNow.toLowerCase()]; saveLbRoleMeta();
+  try{localStorage.removeItem('lineBalancingData_'+keyNow);}catch(e){}
+  renderRoleUsers(); renderUsers(); alert('User '+keyNow+' deleted successfully.');
 };
 
 /* Shared Planning */
