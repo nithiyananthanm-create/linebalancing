@@ -2355,15 +2355,26 @@ document.addEventListener('DOMContentLoaded',()=>{
    and create-user flow so they work even when localStorage is unavailable. */
 (function(){
   const AUTH_DEFAULTS={admin:'admin123',line01:'line01',line02:'line02',line03:'line03'};
+  let authMemoryUsers = Object.assign({}, AUTH_DEFAULTS);
   function authRead(){
     try{
       const raw=localStorage.getItem('lineBalancingUsers');
-      if(raw){ const x=JSON.parse(raw); if(x && typeof x==='object') return x; }
+      if(raw){
+        const x=JSON.parse(raw);
+        if(x && typeof x==='object'){
+          authMemoryUsers = Object.assign({}, x);
+          return authMemoryUsers;
+        }
+      }
     }catch(e){}
-    return Object.assign({},AUTH_DEFAULTS);
+    return Object.assign({}, authMemoryUsers);
   }
   function authWrite(obj){
-    try{ localStorage.setItem('lineBalancingUsers',JSON.stringify(obj)); return true; }catch(e){ return false; }
+    authMemoryUsers = Object.assign({}, obj);
+    try{
+      localStorage.setItem('lineBalancingUsers',JSON.stringify(authMemoryUsers));
+      return true;
+    }catch(e){ return false; }
   }
   function authPass(v){ return (v && typeof v==='object') ? String(v.password||'') : String(v??''); }
   function authKey(obj,id){
@@ -2486,28 +2497,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
 })();
 </script>
-<script>
-/* AUTH FINAL FALLBACK - guarantees default admin login even if storage is blocked */
-(function(){
-  window.__AUTH_READY__=true;
-  window.login=function(){
-    const u=(document.getElementById('loginUser')?.value||'').trim();
-    const p=document.getElementById('loginPass')?.value||'';
-    const msg=document.getElementById('loginMsg');
-    if(!u||!p){if(msg)msg.textContent='Enter User ID and Password.';return;}
-    let users={admin:'admin123',line01:'line01',line02:'line02',line03:'line03'};
-    try{const raw=localStorage.getItem('lineBalancingUsers');if(raw){const x=JSON.parse(raw);if(x&&typeof x==='object')users=x;}}catch(e){}
-    const key=Object.keys(users).find(k=>k.toLowerCase()===u.toLowerCase());
-    const pass=key ? ((users[key]&&typeof users[key]==='object')?String(users[key].password||''):String(users[key])) : '';
-    if(!key || pass!==p){if(msg)msg.textContent='❌ Invalid User ID or Password.';return;}
-    currentUser=key; window.currentUser=key;
-    try{lbCurrentRole=typeof lbRoleOf==='function'?lbRoleOf(key):((key.toLowerCase()==='admin')?'admin':'supervisor');}catch(e){lbCurrentRole=key.toLowerCase()==='admin'?'admin':'supervisor';}
-    try{localStorage.setItem('lineBalancingCurrentUser',key);}catch(e){}
-    const ls=document.getElementById('loginScreen');if(ls)ls.style.display='none';
-    try{if(typeof loadUserData==='function')loadUserData();}catch(e){}
-    try{if(typeof applyLbRoleUI==='function')applyLbRoleUI();else if(typeof showScreen==='function')showScreen('home');}catch(e){document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active'));document.getElementById('homeScreen')?.classList.add('active');}
-  };
-})();
-</script>
+
 </body>
 </html>
