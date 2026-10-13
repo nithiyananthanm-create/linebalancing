@@ -2514,153 +2514,94 @@ document.addEventListener('DOMContentLoaded',()=>{
 })();
 </script>
 
-<!-- CLOUD DATABASE READY MODULE
-     Configure SUPABASE_URL and SUPABASE_ANON_KEY below after creating the
-     Supabase project/table. Until configured, the original localStorage
-     behavior remains available.
--->
+<!-- SUPABASE AUTH + SHARED CLOUD DATA -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
-  const CLOUD_CONFIG = {
-    SUPABASE_URL: "PASTE_YOUR_SUPABASE_URL_HERE",
-    SUPABASE_ANON_KEY: "PASTE_YOUR_SUPABASE_ANON_KEY_HERE",
-    TABLE: "line_balancing_user_data"
-  };
-
-  window.LINE_BALANCE_CLOUD = {
-    configured: false,
-    status: "LOCAL MODE - CLOUD NOT CONFIGURED"
-  };
-
-  function configured(){
-    return CLOUD_CONFIG.SUPABASE_URL.startsWith("https://") &&
-           CLOUD_CONFIG.SUPABASE_ANON_KEY &&
-           !CLOUD_CONFIG.SUPABASE_ANON_KEY.includes("PASTE_YOUR");
+  const CONFIG={URL:"https://garsuswjxdkqlnowbdcs.supabase.co",KEY:"sb_publishable_yvws9HDk5yPK-kgr7J6ikg_nHfxQVnO",TABLE:"line_balancing_user_data"};
+  const client=window.supabase?.createClient(CONFIG.URL,CONFIG.KEY);
+  let authUser=null, saveTimer=null, syncing=false;
+  window.LINE_BALANCE_CLOUD={configured:!!client,status:client?"CLOUD READY - PLEASE LOG IN":"CLOUD SDK NOT LOADED"};
+  function status(s){window.LINE_BALANCE_CLOUD.status=s; const el=document.getElementById('cloudStatus'); if(el)el.textContent=s;}
+  function message(s){const el=document.getElementById('loginMsg');if(el)el.textContent=s;}
+  function snapshot(){return {styles,operators,present:[...present],absent:[...absent],attendanceTotal:[...attendanceTotal],lines,orders,production,lastLineReport,lastAllocation,lastBottleData,allocationHistory,supervisorContacts,managementContacts,breakdowns,eodEntries};}
+  function applyData(d){
+    if(!d||typeof d!=='object')return;
+    styles=d.styles||[]; operators=d.operators||[]; present=new Set(d.present||[]); absent=new Set(d.absent||[]); attendanceTotal=new Set(d.attendanceTotal||[]); lines=d.lines||[]; orders=d.orders||[]; production=d.production||[];
+    lastLineReport=Array.isArray(d.lastLineReport)?d.lastLineReport:[]; lastAllocation=Array.isArray(d.lastAllocation)?d.lastAllocation:[]; allocationHistory=Array.isArray(d.allocationHistory)?d.allocationHistory:[]; supervisorContacts=Array.isArray(d.supervisorContacts)?d.supervisorContacts:[]; managementContacts=Array.isArray(d.managementContacts)?d.managementContacts:[]; breakdowns=Array.isArray(d.breakdowns)?d.breakdowns:[]; eodEntries=Array.isArray(d.eodEntries)?d.eodEntries:[]; lastBottleData=d.lastBottleData||{};
+    try{localStorage.setItem('lineBalancingData_'+currentUser,JSON.stringify({...d}));}catch(e){}
+    ['refreshStyles','refreshContactLineSelect','renderContacts','renderSendAllocation','renderOperatorTable','renderAttendance','refreshLines','drawDashboard','refreshOrderLineSelect','renderOrders','renderProduction','drawProductionChart','drawHome','renderUsers','renderEodReport','renderBottleneck'].forEach(fn=>{try{if(typeof window[fn]==='function')window[fn]();}catch(e){}});
   }
-
-  async function cloudRequest(path, options){
-    const res = await fetch(CLOUD_CONFIG.SUPABASE_URL + path, {
-      ...options,
-      headers: {
-        "apikey": CLOUD_CONFIG.SUPABASE_ANON_KEY,
-        "Authorization": "Bearer " + CLOUD_CONFIG.SUPABASE_ANON_KEY,
-        "Content-Type": "application/json",
-        ...(options && options.headers || {})
-      }
-    });
-    if(!res.ok) throw new Error("Cloud request failed: " + res.status);
-    const text = await res.text();
-    return text ? JSON.parse(text) : null;
+  async function cloudRequest(method,body){
+    if(!authUser)throw new Error('Please log in to Supabase first.');
+    const payload={user_id:authUser.id,app_data:body,updated_at:new Date().toISOString()};
+    const {data,error}=await client.from(CONFIG.TABLE).upsert(payload,{onConflict:'user_id'}).select('user_id');
+    if(error)throw error;return data;
   }
-
   async function pushCloud(){
-    if(!configured() || !currentUser) return false;
-    try{
-      const payload = {
-        user_id: String(currentUser),
-        data: {
-          styles, operators,
-          present:[...present],
-          absent:[...absent],
-          attendanceTotal:[...attendanceTotal],
-          lines, orders, production, lastLineReport, lastAllocation,
-          lastBottleData, allocationHistory, supervisorContacts,
-          managementContacts, breakdowns, eodEntries
-        },
-        updated_at: new Date().toISOString()
-      };
-      await cloudRequest(
-        "/rest/v1/" + CLOUD_CONFIG.TABLE + "?on_conflict=user_id",
-        {method:"POST", headers:{"Prefer":"resolution=merge-duplicates"}, body:JSON.stringify(payload)}
-      );
-      window.LINE_BALANCE_CLOUD.status = "CLOUD SYNCED";
-      return true;
-    }catch(e){
-      window.LINE_BALANCE_CLOUD.status = "CLOUD SYNC ERROR";
-      console.warn("Cloud save:", e);
-      return false;
-    }
+    if(!client||!authUser||!currentUser||syncing)return false;
+    try{await cloudRequest('POST',snapshot());status('CLOUD SYNCED ✓');return true;}
+    catch(e){console.error('Supabase save failed',e);status('CLOUD SAVE ERROR');return false;}
   }
-
   async function pullCloud(){
-    if(!configured() || !currentUser) return false;
+    if(!client||!authUser)return false;
     try{
-      const rows = await cloudRequest(
-        "/rest/v1/" + CLOUD_CONFIG.TABLE + "?user_id=eq." + encodeURIComponent(String(currentUser)) + "&select=data&limit=1",
-        {method:"GET"}
-      );
-      if(rows && rows[0] && rows[0].data){
-        const d=rows[0].data;
-        styles=d.styles||[];
-        operators=d.operators||[];
-        present=new Set(d.present||[]);
-        absent=new Set(d.absent||[]);
-        attendanceTotal=new Set(d.attendanceTotal||[]);
-        lines=d.lines||[];
-        orders=d.orders||[];
-        production=d.production||[];
-        lastLineReport=Array.isArray(d.lastLineReport)?d.lastLineReport:[];
-        lastAllocation=Array.isArray(d.lastAllocation)?d.lastAllocation:[];
-        allocationHistory=Array.isArray(d.allocationHistory)?d.allocationHistory:[];
-        supervisorContacts=Array.isArray(d.supervisorContacts)?d.supervisorContacts:[];
-        managementContacts=Array.isArray(d.managementContacts)?d.managementContacts:[];
-        breakdowns=Array.isArray(d.breakdowns)?d.breakdowns:[];
-        eodEntries=Array.isArray(d.eodEntries)?d.eodEntries:[];
-        lastBottleData=d.lastBottleData||{};
-        window.LINE_BALANCE_CLOUD.status="CLOUD DATA LOADED";
-        if(typeof refreshStyles==="function")refreshStyles();
-        if(typeof refreshContactLineSelect==="function")refreshContactLineSelect();
-        if(typeof renderContacts==="function")renderContacts();
-        if(typeof renderSendAllocation==="function")renderSendAllocation();
-        if(typeof renderOperatorTable==="function")renderOperatorTable();
-        if(typeof renderAttendance==="function")renderAttendance();
-        if(typeof refreshLines==="function")refreshLines();
-        if(typeof drawDashboard==="function")drawDashboard();
-        if(typeof refreshOrderLineSelect==="function")refreshOrderLineSelect();
-        if(typeof renderOrders==="function")renderOrders();
-        if(typeof renderProduction==="function")renderProduction();
-        if(typeof drawProductionChart==="function")drawProductionChart();
-        if(typeof drawHome==="function")drawHome();
-        return true;
-      }
-      window.LINE_BALANCE_CLOUD.status="CLOUD USER DATA NOT FOUND";
-      return false;
-    }catch(e){
-      window.LINE_BALANCE_CLOUD.status="CLOUD LOAD ERROR";
-      console.warn("Cloud load:", e);
-      return false;
-    }
+      const {data,error}=await client.from(CONFIG.TABLE).select('app_data').eq('user_id',authUser.id).maybeSingle();
+      if(error)throw error;
+      if(data?.app_data){syncing=true;applyData(data.app_data);syncing=false;status('CLOUD DATA LOADED ✓');return true;}
+      status('FIRST CLOUD SAVE');await pushCloud();return false;
+    }catch(e){syncing=false;console.error('Supabase load failed',e);status('CLOUD LOAD ERROR: '+(e.message||'check table/policy'));return false;}
   }
-
-  window.cloudSaveNow = pushCloud;
-  window.cloudLoadNow = pullCloud;
-
-  // Keep the original localStorage copy as a fallback, while also syncing
-  // changes to the shared cloud database when configured.
-  const originalSave = window.saveUserData;
-  window.saveUserData = function(){
-    try{ if(typeof originalSave==="function") originalSave(); }catch(e){}
-    pushCloud();
-  };
-
-  // After successful login, prefer shared cloud data for that user.
-  const originalLogin = window.login;
-  window.login = async function(){
-    if(typeof originalLogin==="function") await originalLogin();
-    if(currentUser && configured()){
+  window.cloudSaveNow=pushCloud;window.cloudLoadNow=pullCloud;
+  const originalSave=window.saveUserData;
+  window.saveUserData=function(){try{if(typeof originalSave==='function')originalSave();}catch(e){} if(authUser){clearTimeout(saveTimer);saveTimer=setTimeout(pushCloud,500);}};
+  window.login=async function(){
+    if(!client){message('Cloud login is unavailable. Check internet and reload.');return;}
+    const email=(document.getElementById('loginUser')?.value||'').trim();
+    const password=document.getElementById('loginPass')?.value||'';
+    if(!email||!password){message('Enter the email address used when creating your Supabase user, and password.');return;}
+    message('Connecting to cloud…');status('SIGNING IN…');
+    try{
+      const {data,error}=await client.auth.signInWithPassword({email,password});
+      if(error)throw error;
+      authUser=data.user;currentUser=email;
+      // Cloud accounts use email as the app identity. Give the project owner account
+      // the administrator UI role; other cloud accounts default to supervisor.
+      const cloudRole=(email.toLowerCase()==='nithiyananthanm@gmail.com')?'admin':'supervisor';
+      try{
+        if(typeof lbRoleMeta==='object'&&lbRoleMeta){lbRoleMeta[email.toLowerCase()]={role:cloudRole,line:null};if(typeof saveLbRoleMeta==='function')saveLbRoleMeta();}
+        lbCurrentRole=cloudRole;
+        localStorage.setItem('lineBalancingCurrentUser',currentUser);
+      }catch(e){lbCurrentRole=cloudRole;}
+      document.getElementById('loginScreen').style.display='none';
+      document.getElementById('currentUser').textContent='Logged in: '+email;
+      // Load local cache first for immediate UI, then replace it with cloud data.
+      syncing=true;try{if(typeof loadUserData==='function')loadUserData();}catch(e){}finally{syncing=false;}
+      const ua=document.getElementById('userAdmin');if(ua)ua.style.display='none';
       await pullCloud();
-      if(typeof drawHome==="function") drawHome();
-    }
+      try{if(typeof showScreen==='function')showScreen('home');}catch(e){}
+      message('');
+    }catch(e){authUser=null;status('LOGIN FAILED');message('Supabase login failed: '+(e.message||'Check email and password.'));}
   };
-
-  // Small status indicator.
-  document.addEventListener("DOMContentLoaded", function(){
-    const el=document.createElement("div");
-    el.id="cloudStatus";
-    el.style.cssText="position:fixed;bottom:10px;right:10px;z-index:99999;padding:7px 10px;border-radius:999px;background:#eef2f6;color:#334155;font:700 11px Arial;box-shadow:0 2px 8px #0002";
-    el.textContent=window.LINE_BALANCE_CLOUD.status;
-    document.body.appendChild(el);
-    setInterval(()=>{el.textContent=window.LINE_BALANCE_CLOUD.status;},1000);
+  window.logout=async function(){
+    try{if(authUser)await pushCloud();}catch(e){}
+    try{await client?.auth.signOut();}catch(e){}
+    authUser=null;currentUser='';
+    const ls=document.getElementById('loginScreen');if(ls)ls.style.display='flex';
+    document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active'));
+    document.getElementById('homeScreen')?.classList.add('active');status('SIGNED OUT');
+  };
+  window.resetPassword=async function(){
+    const email=(document.getElementById('resetUser')?.value||document.getElementById('loginUser')?.value||'').trim();
+    if(!email){message('Enter the email address of your Supabase account.');return;}
+    try{const {error}=await client.auth.resetPasswordForEmail(email);if(error)throw error;message('Password reset email requested. Check your inbox.');}
+    catch(e){message('Password reset failed: '+(e.message||'try again'));}
+  };
+  document.addEventListener('DOMContentLoaded',function(){
+    const input=document.getElementById('loginUser');if(input)input.placeholder='Email address (Supabase account)';
+    const note=document.getElementById('cloudSetupNote');if(note)note.innerHTML='<b>☁️ Shared Database:</b> Supabase authentication and cloud sync enabled. Sign in using the email and password of your Supabase Auth user. Use the same account on each device.';
+    const el=document.createElement('div');el.id='cloudStatus';el.style.cssText='position:fixed;bottom:10px;right:10px;z-index:99999;padding:7px 10px;border-radius:999px;background:#eef2f6;color:#334155;font:700 11px Arial;box-shadow:0 2px 8px #0002';el.textContent=window.LINE_BALANCE_CLOUD.status;document.body.appendChild(el);
+    client?.auth.getSession().then(({data})=>{if(data?.session)status('SESSION FOUND - PLEASE LOG IN AGAIN');});
   });
 })();
 </script>
