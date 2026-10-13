@@ -159,6 +159,10 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 </div>
 <header>LINE BALANCING APP <button class="secondary" onclick="logout()" style="float:right;padding:6px 10px">LOGOUT</button></header>
 <div class="container"><div class="small" id="currentUser"></div>
+<div id="cloudSetupNote" style="margin:10px 0;padding:10px 12px;border:1px solid #93c5fd;border-radius:10px;background:#eff6ff;color:#1e3a8a;font-size:12px">
+<b>☁️ Shared Database:</b> This version is cloud-ready. Add the Supabase URL and anonymous key in the CLOUD_CONFIG section to make the same user data available across Chrome, Edge, Safari and other devices.
+</div>
+
 <div class="navbar">
 <button class="navbtn active" id="navHome" onclick="showScreen('home')">🏠 DASHBOARD</button>
 <button class="navbtn" id="navProfile" onclick="showScreen('profile')">👤 MY PROFILE</button>
@@ -2355,26 +2359,15 @@ document.addEventListener('DOMContentLoaded',()=>{
    and create-user flow so they work even when localStorage is unavailable. */
 (function(){
   const AUTH_DEFAULTS={admin:'admin123',line01:'line01',line02:'line02',line03:'line03'};
-  let authMemoryUsers = Object.assign({}, AUTH_DEFAULTS);
   function authRead(){
     try{
       const raw=localStorage.getItem('lineBalancingUsers');
-      if(raw){
-        const x=JSON.parse(raw);
-        if(x && typeof x==='object'){
-          authMemoryUsers = Object.assign({}, x);
-          return authMemoryUsers;
-        }
-      }
+      if(raw){ const x=JSON.parse(raw); if(x && typeof x==='object') return x; }
     }catch(e){}
-    return Object.assign({}, authMemoryUsers);
+    return Object.assign({},AUTH_DEFAULTS);
   }
   function authWrite(obj){
-    authMemoryUsers = Object.assign({}, obj);
-    try{
-      localStorage.setItem('lineBalancingUsers',JSON.stringify(authMemoryUsers));
-      return true;
-    }catch(e){ return false; }
+    try{ localStorage.setItem('lineBalancingUsers',JSON.stringify(obj)); return true; }catch(e){ return false; }
   }
   function authPass(v){ return (v && typeof v==='object') ? String(v.password||'') : String(v??''); }
   function authKey(obj,id){
@@ -2495,6 +2488,180 @@ document.addEventListener('DOMContentLoaded',()=>{
     msg('');
     const login=document.getElementById('loginScreen');if(login)login.style.display='flex';
   };
+})();
+</script>
+<script>
+/* AUTH FINAL FALLBACK - guarantees default admin login even if storage is blocked */
+(function(){
+  window.__AUTH_READY__=true;
+  window.login=function(){
+    const u=(document.getElementById('loginUser')?.value||'').trim();
+    const p=document.getElementById('loginPass')?.value||'';
+    const msg=document.getElementById('loginMsg');
+    if(!u||!p){if(msg)msg.textContent='Enter User ID and Password.';return;}
+    let users={admin:'admin123',line01:'line01',line02:'line02',line03:'line03'};
+    try{const raw=localStorage.getItem('lineBalancingUsers');if(raw){const x=JSON.parse(raw);if(x&&typeof x==='object')users=x;}}catch(e){}
+    const key=Object.keys(users).find(k=>k.toLowerCase()===u.toLowerCase());
+    const pass=key ? ((users[key]&&typeof users[key]==='object')?String(users[key].password||''):String(users[key])) : '';
+    if(!key || pass!==p){if(msg)msg.textContent='❌ Invalid User ID or Password.';return;}
+    currentUser=key; window.currentUser=key;
+    try{lbCurrentRole=typeof lbRoleOf==='function'?lbRoleOf(key):((key.toLowerCase()==='admin')?'admin':'supervisor');}catch(e){lbCurrentRole=key.toLowerCase()==='admin'?'admin':'supervisor';}
+    try{localStorage.setItem('lineBalancingCurrentUser',key);}catch(e){}
+    const ls=document.getElementById('loginScreen');if(ls)ls.style.display='none';
+    try{if(typeof loadUserData==='function')loadUserData();}catch(e){}
+    try{if(typeof applyLbRoleUI==='function')applyLbRoleUI();else if(typeof showScreen==='function')showScreen('home');}catch(e){document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active'));document.getElementById('homeScreen')?.classList.add('active');}
+  };
+})();
+</script>
+
+<!-- CLOUD DATABASE READY MODULE
+     Configure SUPABASE_URL and SUPABASE_ANON_KEY below after creating the
+     Supabase project/table. Until configured, the original localStorage
+     behavior remains available.
+-->
+<script>
+(function(){
+  const CLOUD_CONFIG = {
+    SUPABASE_URL: "PASTE_YOUR_SUPABASE_URL_HERE",
+    SUPABASE_ANON_KEY: "PASTE_YOUR_SUPABASE_ANON_KEY_HERE",
+    TABLE: "line_balancing_user_data"
+  };
+
+  window.LINE_BALANCE_CLOUD = {
+    configured: false,
+    status: "LOCAL MODE - CLOUD NOT CONFIGURED"
+  };
+
+  function configured(){
+    return CLOUD_CONFIG.SUPABASE_URL.startsWith("https://") &&
+           CLOUD_CONFIG.SUPABASE_ANON_KEY &&
+           !CLOUD_CONFIG.SUPABASE_ANON_KEY.includes("PASTE_YOUR");
+  }
+
+  async function cloudRequest(path, options){
+    const res = await fetch(CLOUD_CONFIG.SUPABASE_URL + path, {
+      ...options,
+      headers: {
+        "apikey": CLOUD_CONFIG.SUPABASE_ANON_KEY,
+        "Authorization": "Bearer " + CLOUD_CONFIG.SUPABASE_ANON_KEY,
+        "Content-Type": "application/json",
+        ...(options && options.headers || {})
+      }
+    });
+    if(!res.ok) throw new Error("Cloud request failed: " + res.status);
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+
+  async function pushCloud(){
+    if(!configured() || !currentUser) return false;
+    try{
+      const payload = {
+        user_id: String(currentUser),
+        data: {
+          styles, operators,
+          present:[...present],
+          absent:[...absent],
+          attendanceTotal:[...attendanceTotal],
+          lines, orders, production, lastLineReport, lastAllocation,
+          lastBottleData, allocationHistory, supervisorContacts,
+          managementContacts, breakdowns, eodEntries
+        },
+        updated_at: new Date().toISOString()
+      };
+      await cloudRequest(
+        "/rest/v1/" + CLOUD_CONFIG.TABLE + "?on_conflict=user_id",
+        {method:"POST", headers:{"Prefer":"resolution=merge-duplicates"}, body:JSON.stringify(payload)}
+      );
+      window.LINE_BALANCE_CLOUD.status = "CLOUD SYNCED";
+      return true;
+    }catch(e){
+      window.LINE_BALANCE_CLOUD.status = "CLOUD SYNC ERROR";
+      console.warn("Cloud save:", e);
+      return false;
+    }
+  }
+
+  async function pullCloud(){
+    if(!configured() || !currentUser) return false;
+    try{
+      const rows = await cloudRequest(
+        "/rest/v1/" + CLOUD_CONFIG.TABLE + "?user_id=eq." + encodeURIComponent(String(currentUser)) + "&select=data&limit=1",
+        {method:"GET"}
+      );
+      if(rows && rows[0] && rows[0].data){
+        const d=rows[0].data;
+        styles=d.styles||[];
+        operators=d.operators||[];
+        present=new Set(d.present||[]);
+        absent=new Set(d.absent||[]);
+        attendanceTotal=new Set(d.attendanceTotal||[]);
+        lines=d.lines||[];
+        orders=d.orders||[];
+        production=d.production||[];
+        lastLineReport=Array.isArray(d.lastLineReport)?d.lastLineReport:[];
+        lastAllocation=Array.isArray(d.lastAllocation)?d.lastAllocation:[];
+        allocationHistory=Array.isArray(d.allocationHistory)?d.allocationHistory:[];
+        supervisorContacts=Array.isArray(d.supervisorContacts)?d.supervisorContacts:[];
+        managementContacts=Array.isArray(d.managementContacts)?d.managementContacts:[];
+        breakdowns=Array.isArray(d.breakdowns)?d.breakdowns:[];
+        eodEntries=Array.isArray(d.eodEntries)?d.eodEntries:[];
+        lastBottleData=d.lastBottleData||{};
+        window.LINE_BALANCE_CLOUD.status="CLOUD DATA LOADED";
+        if(typeof refreshStyles==="function")refreshStyles();
+        if(typeof refreshContactLineSelect==="function")refreshContactLineSelect();
+        if(typeof renderContacts==="function")renderContacts();
+        if(typeof renderSendAllocation==="function")renderSendAllocation();
+        if(typeof renderOperatorTable==="function")renderOperatorTable();
+        if(typeof renderAttendance==="function")renderAttendance();
+        if(typeof refreshLines==="function")refreshLines();
+        if(typeof drawDashboard==="function")drawDashboard();
+        if(typeof refreshOrderLineSelect==="function")refreshOrderLineSelect();
+        if(typeof renderOrders==="function")renderOrders();
+        if(typeof renderProduction==="function")renderProduction();
+        if(typeof drawProductionChart==="function")drawProductionChart();
+        if(typeof drawHome==="function")drawHome();
+        return true;
+      }
+      window.LINE_BALANCE_CLOUD.status="CLOUD USER DATA NOT FOUND";
+      return false;
+    }catch(e){
+      window.LINE_BALANCE_CLOUD.status="CLOUD LOAD ERROR";
+      console.warn("Cloud load:", e);
+      return false;
+    }
+  }
+
+  window.cloudSaveNow = pushCloud;
+  window.cloudLoadNow = pullCloud;
+
+  // Keep the original localStorage copy as a fallback, while also syncing
+  // changes to the shared cloud database when configured.
+  const originalSave = window.saveUserData;
+  window.saveUserData = function(){
+    try{ if(typeof originalSave==="function") originalSave(); }catch(e){}
+    pushCloud();
+  };
+
+  // After successful login, prefer shared cloud data for that user.
+  const originalLogin = window.login;
+  window.login = async function(){
+    if(typeof originalLogin==="function") await originalLogin();
+    if(currentUser && configured()){
+      await pullCloud();
+      if(typeof drawHome==="function") drawHome();
+    }
+  };
+
+  // Small status indicator.
+  document.addEventListener("DOMContentLoaded", function(){
+    const el=document.createElement("div");
+    el.id="cloudStatus";
+    el.style.cssText="position:fixed;bottom:10px;right:10px;z-index:99999;padding:7px 10px;border-radius:999px;background:#eef2f6;color:#334155;font:700 11px Arial;box-shadow:0 2px 8px #0002";
+    el.textContent=window.LINE_BALANCE_CLOUD.status;
+    document.body.appendChild(el);
+    setInterval(()=>{el.textContent=window.LINE_BALANCE_CLOUD.status;},1000);
+  });
 })();
 </script>
 
