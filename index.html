@@ -98,16 +98,37 @@ header{background:linear-gradient(90deg,#0f172a,#1d4ed8,#0891b2);box-shadow:0 4p
 
 
 <script>
-/* LINE TARGET EFFICIENCY = LOWEST ALLOCATED OPERATOR EFFICIENCY */
+/* AUTO-ALLOCATION TARGET: calculate each operation's capacity from its own style SAM
+   and the efficiency of operators actually allocated to that operation. */
 function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
-  const rows=(allocatedRows||[]).filter(r=>Number.isFinite(Number(r.eff)));
-  const low=rows.length ? rows.reduce((a,b)=>(Number(a.eff)||0)<(Number(b.eff)||0)?a:b) : null;
-  let baseHourly=0;
-  if(styleObj && Array.isArray(styleObj.ops)) {
-    const caps=styleObj.ops.map(op=>{ const qty=Math.max(1,Math.floor(Number(op.qty)||1)); const sam=Number(op.sam)||0; return sam>0?60*qty/sam:0; }).filter(Boolean);
-    baseHourly=caps.length?Math.min(...caps):0;
-  }
-  return {eff:low?Math.round(Number(low.eff)||0):0, operation:'-', baseHourly};
+  const rows=Array.isArray(allocatedRows)?allocatedRows:[];
+  if(!styleObj || !Array.isArray(styleObj.ops) || !styleObj.ops.length)
+    return {eff:0, operation:'-', baseHourly:0, actualHourly:0};
+
+  const operationCaps=[];
+  styleObj.ops.forEach(op=>{
+    const sam=Number(op.sam)||0;
+    const required=Math.max(1,Math.floor(Number(op.qty)||1));
+    if(sam<=0)return;
+    const opName=String(op.name||'').trim().toLowerCase();
+    const matched=rows.filter(r=>String(r.operation||'').trim().toLowerCase()===opName
+      && Math.abs((Number(r.sam)||0)-sam)<0.0001);
+    const idealHourly=(60*required)/sam;
+    const actualHourly=matched.reduce((sum,r)=>sum+(60/sam)*(Math.max(0,Math.min(100,Number(r.eff)||0))/100),0);
+    const operationEfficiency=idealHourly>0?Math.max(0,Math.min(100,actualHourly/idealHourly*100)):0;
+    operationCaps.push({name:op.name||'-',idealHourly,actualHourly,operationEfficiency});
+  });
+  if(!operationCaps.length)return {eff:0,operation:'-',baseHourly:0,actualHourly:0};
+
+  // Compare each operation against its OWN ideal capacity. Do not divide the
+  // capacity of one bottleneck operation by another operation's ideal capacity.
+  const limitingByEfficiency=operationCaps.reduce((a,b)=>a.operationEfficiency<=b.operationEfficiency?a:b);
+  const limitingByCapacity=operationCaps.reduce((a,b)=>a.actualHourly<=b.actualHourly?a:b);
+  const baseHourly=Math.min(...operationCaps.map(x=>x.idealHourly));
+  const actualHourly=Math.max(0,limitingByCapacity.actualHourly);
+  const eff=Math.round(Math.max(0,Math.min(100,limitingByEfficiency.operationEfficiency)));
+  return {eff,operation:limitingByCapacity.name||limitingByEfficiency.name||'-',baseHourly,actualHourly,
+    efficiencyBottleneckOperation:limitingByEfficiency.name||'-',capacityBottleneckOperation:limitingByCapacity.name||'-'};
 }
 </script>
 
@@ -124,7 +145,7 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 </style>
 </head>
 <body>
-<div id="loginScreen" style="position:fixed;inset:0;background:#17202a;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
+<div id="loginScreen" style="position:fixed;inset:0;background:#17202a;display:none;align-items:center;justify-content:center;z-index:9999;padding:20px">
   <div class="card" style="width:100%;max-width:380px">
     <h2 style="text-align:center">LINE BALANCING APP</h2>
     <input id="loginUser" placeholder="User ID" style="width:100%;margin-bottom:10px">
@@ -141,6 +162,38 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
     <div id="loginMsg" class="small" style="margin-top:10px"></div>
   </div>
 </div>
+<section id="publicLanding" style="min-height:100vh;background:linear-gradient(135deg,#eff6ff,#f8fafc 45%,#ecfeff);font-family:Arial,sans-serif;color:#17202a">
+  <div style="background:linear-gradient(100deg,#0f172a,#1d4ed8,#0891b2);color:white;padding:22px clamp(16px,4vw,56px);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;box-shadow:0 6px 20px #0f172a22">
+    <div><div style="font-size:12px;letter-spacing:2px;opacity:.85;font-weight:700">GARMENT PRODUCTION MANAGEMENT</div><div style="font-size:clamp(25px,4vw,38px);font-weight:800;margin-top:5px">⚖️ LINE BALANCING APP</div><div style="margin-top:6px;opacity:.9">Smart planning • balanced lines • real-time production visibility</div></div>
+    <button onclick="openAppLogin()" style="background:white;color:#1d4ed8;border:0;border-radius:10px;padding:12px 22px;font-size:15px;font-weight:800;box-shadow:0 4px 12px #0002">🔐 LOGIN</button>
+  </div>
+  <div style="max-width:1200px;margin:auto;padding:28px 16px 44px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:18px;align-items:stretch">
+      <div style="background:linear-gradient(145deg,#172554,#2563eb,#0891b2);border-radius:20px;padding:28px;color:white;box-shadow:0 12px 28px #1d4ed833">
+        <div style="font-size:13px;font-weight:800;letter-spacing:1.5px;opacity:.85">PRODUCTION CONTROL CENTER</div><h1 style="font-size:clamp(28px,4vw,42px);line-height:1.12;margin:14px 0">Plan smarter.<br>Balance better.</h1><p style="line-height:1.7;opacity:.92">A single workspace for garment line planning, operator allocation, target calculation, production tracking and bottleneck follow-up.</p><button onclick="openAppLogin()" style="background:#fff;color:#1d4ed8;border:0;border-radius:10px;padding:12px 18px;font-weight:800;margin-top:10px">OPEN APP →</button>
+      </div>
+      <div style="background:white;border:1px solid #dbeafe;border-radius:20px;padding:22px;box-shadow:0 8px 24px #0f172a0c"><h2 style="margin:0 0 14px;font-size:20px">📌 App Modules</h2><div style="display:grid;gap:12px">
+        <div style="padding:12px;border-radius:12px;background:#eff6ff"><b>📊 Dashboard</b><div style="font-size:13px;color:#475569;margin-top:4px">Line status, target, actual production, achievement and efficiency summary.</div></div>
+        <div style="padding:12px;border-radius:12px;background:#f0fdf4"><b>📦 Order Planning</b><div style="font-size:13px;color:#475569;margin-top:4px">Style, buyer, colour, order quantity, shipment date and balance tracking.</div></div>
+        <div style="padding:12px;border-radius:12px;background:#fff7ed"><b>⚖️ Auto Line Balancing</b><div style="font-size:13px;color:#475569;margin-top:4px">Operation SAM, skill matrix, manpower allocation, capacity and target calculation.</div></div>
+        <div style="padding:12px;border-radius:12px;background:#fdf2f8"><b>📈 Production & Efficiency</b><div style="font-size:13px;color:#475569;margin-top:4px">Record actual production and review line efficiency and achievement.</div></div>
+      </div></div>
+    </div>
+    <h2 style="font-size:24px;margin:30px 0 14px">Everything your production team needs</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+      <div style="background:white;border:1px solid #dbeafe;border-radius:14px;padding:17px"><b>🚦 Bottleneck Monitoring</b><p style="font-size:13px;line-height:1.6;color:#475569">Identify low-capacity operations and prioritize balancing actions.</p></div>
+      <div style="background:white;border:1px solid #dbeafe;border-radius:14px;padding:17px"><b>👷 Supervisor Line Portal</b><p style="font-size:13px;line-height:1.6;color:#475569">Line-specific access and supervisor production updates.</p></div>
+      <div style="background:white;border:1px solid #dbeafe;border-radius:14px;padding:17px"><b>🎯 PM + IE Style Allocation</b><p style="font-size:13px;line-height:1.6;color:#475569">Style-wise planning, operator skill matching and line allocation.</p></div>
+      <div style="background:white;border:1px solid #dbeafe;border-radius:14px;padding:17px"><b>📲 Send & Contacts</b><p style="font-size:13px;line-height:1.6;color:#475569">Manage supervisor and management contacts and share allocation details.</p></div>
+      <div style="background:white;border:1px solid #dbeafe;border-radius:14px;padding:17px"><b>🛠️ Line Breakdown</b><p style="font-size:13px;line-height:1.6;color:#475569">Record stoppages and follow up breakdown information.</p></div>
+      <div style="background:white;border:1px solid #dbeafe;border-radius:14px;padding:17px"><b>📋 Supervisor EOD</b><p style="font-size:13px;line-height:1.6;color:#475569">Capture end-of-day production status and reports.</p></div>
+      <div style="background:white;border:1px solid #dbeafe;border-radius:14px;padding:17px"><b>🔧 Mechanic Management</b><p style="font-size:13px;line-height:1.6;color:#475569">Organize mechanic assignments and maintenance follow-up.</p></div>
+      <div style="background:white;border:1px solid #dbeafe;border-radius:14px;padding:17px"><b>🔐 Admin Control & Profile</b><p style="font-size:13px;line-height:1.6;color:#475569">Manage authorized users, access roles and account settings.</p></div>
+    </div>
+    <div style="margin-top:24px;padding:20px;border-radius:16px;background:#e0f2fe;border:1px solid #7dd3fc;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap"><div><b style="font-size:18px">Ready to open your workspace?</b><div style="font-size:13px;color:#334155;margin-top:5px">Sign in to access the app modules allowed for your account.</div></div><button onclick="openAppLogin()" style="background:#1d4ed8;color:white;border:0;border-radius:10px;padding:12px 20px;font-weight:800">LOGIN TO CONTINUE</button></div>
+  </div>
+</section>
+<style>body:not(.app-logged-in)>header,body:not(.app-logged-in)>.container{display:none!important}body.app-logged-in #publicLanding{display:none!important}#loginScreen{z-index:10001!important}#loginScreen .card{max-height:92vh;overflow:auto}@media(max-width:600px){#publicLanding h1{font-size:30px}}</style>
 <div id="createUserScreen" style="display:none;position:fixed;inset:0;background:#17202a;align-items:center;justify-content:center;z-index:10000;padding:20px">
   <div class="card" style="width:100%;max-width:420px">
     <h2 style="text-align:center">👤 CREATE USER</h2>
@@ -160,7 +213,7 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <header>LINE BALANCING APP <button class="secondary" onclick="logout()" style="float:right;padding:6px 10px">LOGOUT</button></header>
 <div class="container"><div class="small" id="currentUser"></div>
 <div id="cloudSetupNote" style="margin:10px 0;padding:10px 12px;border:1px solid #93c5fd;border-radius:10px;background:#eff6ff;color:#1e3a8a;font-size:12px">
-<b>☁️ Shared Database:</b> This version is cloud-ready. Add the Supabase URL and anonymous key in the CLOUD_CONFIG section to make the same user data available across Chrome, Edge, Safari and other devices.
+<b>☁️ Shared Database:</b> Supabase connection details are configured. Cloud sync also requires a safe server-side login/RLS setup before cross-device data sync can work.
 </div>
 
 <div class="navbar">
@@ -270,7 +323,7 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <div id="mainScreen" class="app-screen">
 <div class="hero" style="background:linear-gradient(135deg,#0f172a,#1d4ed8,#0891b2)"><h1>⚖️ Smart Line Balance Control</h1><p>Auto allocation • bottleneck protection • manpower utilization • line-by-line balance</p></div>
 <div class="super-kpis" id="superKpis"></div>
-<div class="actionbar"><label style="display:flex;align-items:center;gap:6px;font-weight:700">📅 Allocation Date <input id="allocationDate" type="date" style="width:150px"></label><label style="display:flex;align-items:center;gap:6px;font-weight:700">⏱ Working Hours <input id="workingHours" type="number" min="1" max="24" step="0.5" value="8" style="width:90px" oninput="hoursChanged()"></label><button class="primary" onclick="autoBalance()">⚙️ SMART AUTO BALANCE</button><button class="ghost" onclick="clearBalance()">🧹 CLEAR ALLOCATION</button><button class="ghost" onclick="showScreen('efficiency')">📊 EFFICIENCY</button><button class="ghost" onclick="showScreen('bottleneck')">🚦 BOTTLENECK</button><button class="ghost" onclick="exportProductionReport()">📤 EXPORT REPORT</button><button class="primary" onclick="downloadOverallReport()">📚 DOWNLOAD ALL REPORTS</button></div>
+<div class="actionbar"><label style="display:flex;align-items:center;gap:6px;font-weight:700">📅 Allocation Date <input id="allocationDate" type="date" style="width:150px"></label><label style="display:flex;align-items:center;gap:6px;font-weight:700">⏱ Working Hours <input id="workingHours" type="number" min="1" max="24" step="0.5" value="8" style="width:90px" oninput="hoursChanged()"></label><button class="primary" onclick="autoBalance()">⚙️ SMART AUTO BALANCE</button><button class="green" onclick="autoBalanceAndSendToSupervisors()">📲 AUTO BALANCE + SEND TO LINE SUPERVISORS</button><button class="ghost" onclick="clearBalance()">🧹 CLEAR ALLOCATION</button><button class="ghost" onclick="showScreen('efficiency')">📊 EFFICIENCY</button><button class="ghost" onclick="showScreen('bottleneck')">🚦 BOTTLENECK</button><button class="ghost" onclick="exportProductionReport()">📤 EXPORT REPORT</button><button class="primary" onclick="downloadOverallReport()">📚 DOWNLOAD ALL REPORTS</button></div>
 <div class="card"><div class="section-title"><h2>🎯 Live Line Balance Board</h2><span class="muted">Green = balanced • Orange = warning • Red = shortage</span></div><div id="balanceBoard" class="balance-board"></div></div>
 <div id="userAdmin" class="card" style="display:none">
 <h2>👥 ADMIN — USER MANAGEMENT</h2>
@@ -377,8 +430,8 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <input id="extraManpowerCount" type="number" min="1" max="20" value="1" placeholder="Extra Manpower Qty">
 <button class="primary" onclick="addExtraManpower()">➕ ADD EXTRA MANPOWER</button>
 </div></div>
-<div class="tablewrap"><table id="allocation"><thead><tr>
-<th>Line</th><th>Style</th><th>Operator ID</th><th>Name</th><th>Operation</th><th>SAM</th><th>Efficiency</th><th>Status</th><th>Action</th>
+<div id="allocationTargetSummary" class="stats" style="margin:10px 0"></div><div class="tablewrap"><table id="allocation"><thead><tr>
+<th>Line</th><th>Style</th><th>Operator ID</th><th>Name</th><th>Operation</th><th>SAM</th><th>Efficiency</th><th>Line Target/Day</th><th>Target/Hour</th><th>Status</th><th>Action</th>
 </tr></thead><tbody></tbody></table></div>
 </div>
 
@@ -400,16 +453,16 @@ function calculateBottleneckLineEfficiency(styleObj, allocatedRows){
 <div class="tablewrap" style="margin-top:10px"><table id="lineReport"><thead><tr>
 <th>Line</th><th>Style</th><th>Required</th><th>Allocated</th><th>Shortage</th><th>Auto Target Qty</th><th>Est./Hour</th><th>Est./Day</th><th>Efficiency</th><th>Balance %</th>
 </tr></thead><tbody></tbody></table></div>
-<div class="small" style="margin-top:8px">📅 Date-wise allocation history compares today with the previous allocation date. Operators returning to their previous line get same-line priority; changed/new operators are highlighted in orange. &nbsp; Auto Target Qty = theoretical bottleneck capacity × Line Efficiency × manpower balance × Working Hours. Change Working Hours above and run Auto Balance to refresh.</div>
+<div class="small" style="margin-top:8px">📅 Date-wise allocation history compares today with the previous allocation date. Operators returning to their previous line get same-line priority; changed/new operators are highlighted in orange. &nbsp; Auto Target Qty = allocated manpower × working minutes × line efficiency ÷ full garment SAM. Change Working Hours above and run Auto Balance to refresh.</div>
 <canvas id="effChart" width="900" height="280"></canvas>
 </div>
 
 <div class="card"><h2>⏱️ HOURLY PRODUCTION ENTRY</h2>
 <div class="production-form"><div class="three">
 <select id="prodLine"><option value="">Select Line</option></select><input id="prodHour" placeholder="Hour (e.g. 9-10)"><input id="prodTarget" type="number" min="0" placeholder="Target">
-<input id="prodActual" type="number" min="0" placeholder="Actual"><input id="prodEfficiency" type="number" min="0" max="200" placeholder="Efficiency %"><button class="green" onclick="addProduction()">+ SAVE PRODUCTION</button>
+<input id="prodActual" type="number" min="0" placeholder="Actual"><input id="prodManpower" type="number" min="0" placeholder="Actual Manpower (optional)"><input id="prodEfficiency" type="number" min="0" max="200" placeholder="Efficiency %"><button class="green" onclick="addProduction()">+ SAVE PRODUCTION</button>
 </div></div>
-<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Line</th><th>Hour</th><th>Target</th><th>Actual</th><th>Achievement</th><th>Efficiency</th><th>Action</th></tr></thead><tbody id="productionTable"></tbody></table></div>
+<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Line</th><th>Hour</th><th>Target</th><th>Actual</th><th>Achievement</th><th>Manpower</th><th>Style SAM</th><th>Efficiency</th><th>Action</th></tr></thead><tbody id="productionTable"></tbody></table></div>
 <canvas id="productionChart" class="miniChart" width="900" height="240"></canvas>
 </div>
 
@@ -598,7 +651,8 @@ function saveUserData(){
     present:[...present],
     absent:[...absent],
     attendanceTotal:[...attendanceTotal],
-    lines, orders, production, lastLineReport, lastAllocation, lastBottleData, allocationHistory, supervisorContacts, managementContacts, breakdowns
+    lines, orders, production, lastLineReport, lastAllocation, lastBottleData, allocationHistory,
+    supervisorContacts, managementContacts, breakdowns, eodEntries
   }));
 }
 
@@ -971,9 +1025,17 @@ function refreshAllocationOperatorOptions(){
 }
 function renderAllocationTable(){
   const tb=document.querySelector('#allocation tbody'); if(!tb)return;
+  // Rebuild a line target report if allocation exists but the report was not restored from cloud.
+  if((lastAllocation||[]).length && (!Array.isArray(lastLineReport)||!lastLineReport.length)){
+    try{rebuildReportsFromAllocation();return;}catch(e){console.warn('Target report rebuild failed',e);}
+  }
   const filter=document.getElementById('allocationLineFilter')?.value||'';
+  const reports=Array.isArray(lastLineReport)?lastLineReport:[];
+  const targetFor=line=>reports.find(x=>String(x.line)===String(line))||{};
   const rows=(lastAllocation||[]).filter(r=>!filter||String(r.line)===String(filter));
-  tb.innerHTML=rows.map(r=>{const repl=r.replacementToday; return `<tr style="${repl?'background:#fff3cd;border-left:5px solid #ff9800':''}"><td>${r.line}</td><td>${r.style}</td><td><b>${r.operatorId}</b></td><td>${r.operatorName}</td><td>${r.operation}</td><td>${r.sam}</td><td>${r.eff}%</td><td>${repl?'<span style="color:#e65100;font-weight:800">🔶 REPLACEMENT / NEW TODAY</span>':(r.status||'ALLOCATED')}</td><td><button class="danger" style="padding:4px 7px" onclick="removeAllocationOperator(${JSON.stringify(String(r.operatorId))})">REMOVE</button></td></tr>`}).join('')||'<tr><td colspan="9">No allocated operators for this line.</td></tr>';
+  tb.innerHTML=rows.map(r=>{const repl=r.replacementToday,lr=targetFor(r.line); return `<tr style="${repl?'background:#fff3cd;border-left:5px solid #ff9800':''}"><td>${r.line}</td><td>${escapeHtml(r.style||'')}</td><td><b>${escapeHtml(r.operatorId)}</b></td><td>${escapeHtml(r.operatorName||'')}</td><td>${escapeHtml(r.operation||'')}</td><td>${Number(r.sam)||0}</td><td>${Number(r.eff)||0}%</td><td><b>${Number(lr.targetQty)||Number(lr.dailyQty)||0}</b></td><td>${Number(lr.hourlyQty)||0}</td><td>${repl?'<span style="color:#e65100;font-weight:800">🔶 REPLACEMENT / NEW TODAY</span>':(r.status||'ALLOCATED')}</td><td><button class="danger" style="padding:4px 7px" onclick="removeAllocationOperator(${JSON.stringify(String(r.operatorId))})">REMOVE</button></td></tr>`}).join('')||'<tr><td colspan="11">No allocated operators for this line.</td></tr>';
+  const summary=document.getElementById('allocationTargetSummary');
+  if(summary){const reportRows=reports.filter(r=>!filter||String(r.line)===String(filter));summary.innerHTML=reportRows.map(r=>`<div class="stat">LINE ${escapeHtml(r.line)} TARGET / DAY<b>${Number(r.targetQty)||Number(r.dailyQty)||0}</b><span class="small">${Number(r.hourlyQty)||0} pcs/hour · Efficiency ${Number(r.eff)||0}% · ${Number(r.allocated)||0} operators</span></div>`).join('')||'<div class="stat">LINE TARGET<b>Run AUTO BALANCE</b></div>';}
   refreshAllocationControls();
 }
 function rebuildReportsFromAllocation(){
@@ -993,7 +1055,9 @@ function rebuildReportsFromAllocation(){
     const balance=Math.round(allocated/Math.max(required,1)*100);
     const baseHourly=bottleneck.baseHourly;
     const hours=Math.max(0,Number(document.getElementById('workingHours')?.value)||8);
-    const hourly=Math.floor(baseHourly*(eff/100)), daily=Math.floor(hourly*hours);
+    const garmentSam=(Array.isArray(st.ops)?st.ops.reduce((sum,op)=>sum+(Number(op.sam)||0),0):0);
+    const targetHourlyRaw=(garmentSam>0)?(allocated*60*(eff/100)/garmentSam):0;
+    const hourly=Math.floor(targetHourlyRaw), daily=Math.floor(targetHourlyRaw*hours);
     l.eff=eff;l.hourlyQty=hourly;l.dailyQty=daily;l.autoTargetQty=daily;
     lineReport.push({line:l.id,style:st.style,required,allocated,shortage:Math.max(0,required-allocated),eff,balance,targetQty:daily,hourlyQty:hourly,dailyQty:daily,baseHourlyQty:Math.floor(baseHourly)});
   });
@@ -1155,8 +1219,12 @@ function autoBalance(){
     // Target follows the lowest-capacity operation/operator, not the average operator efficiency.
     const baseHourlyQty=bottleneck.baseHourly;
     const hours=Math.max(0,Number(document.getElementById('workingHours')?.value)||8);
-    const hourlyQty=Math.floor(baseHourlyQty*(eff/100));
-    const dailyQty=Math.floor(hourlyQty*hours);
+    // Correct line target formula: total allocated manpower × minutes × line efficiency ÷ full garment SAM.
+    // Do not use one operation's capacity as the whole line target.
+    const garmentSam=(Array.isArray(st.ops)?st.ops.reduce((sum,op)=>sum+(Number(op.sam)||0),0):0);
+    const targetHourlyRaw=(garmentSam>0)?(allocated*60*(eff/100)/garmentSam):0;
+    const hourlyQty=Math.floor(targetHourlyRaw);
+    const dailyQty=Math.floor(targetHourlyRaw*hours);
     const targetQty=dailyQty;
     l.eff=eff; l.hourlyQty=hourlyQty; l.dailyQty=dailyQty; l.autoTargetQty=targetQty;
     lineReport.push({line:l.id,style:st.style,required,allocated,shortage:Math.max(0,required-allocated),eff,balance,targetQty,hourlyQty,dailyQty,baseHourlyQty:Math.floor(baseHourlyQty),bottleneckOperation:bottleneck.operation});
@@ -1231,17 +1299,30 @@ function renderOrders(){
  tb.innerHTML=orders.map(o=>{const prod=Number(o.produced)||0,b=Math.max(0,(Number(o.qty)||0)-prod),days=Math.ceil((new Date(o.ship)-today)/86400000),risk=b===0?'COMPLETE':days<0?'OVERDUE':days<=2?'HIGH':days<=5?'WATCH':'OK';return `<tr><td>${o.style}</td><td>${o.buyer||'-'}</td><td>${o.color||'-'}</td><td>${o.qty}</td><td>${prod}</td><td><b>${b}</b></td><td>${o.ship}</td><td><span class="statuspill ${risk==='OK'||risk==='COMPLETE'?'good':risk==='WATCH'?'warn':'risk'}">${risk}</span></td><td><button class="danger" onclick="deleteOrder(${o.id})">DELETE</button></td></tr>`}).join('')||'<tr><td colspan="9">No orders added.</td></tr>';
 }
 function addProduction(){
- const line=document.getElementById('prodLine').value,hour=document.getElementById('prodHour').value.trim(),target=Number(document.getElementById('prodTarget').value)||0,actual=Number(document.getElementById('prodActual').value)||0,eff=Number(document.getElementById('prodEfficiency').value)||0;
+ const line=document.getElementById('prodLine').value,hour=document.getElementById('prodHour').value.trim(),target=Number(document.getElementById('prodTarget').value)||0,actual=Number(document.getElementById('prodActual').value)||0;
  if(!line||!hour||target<=0)return alert('Select Line and enter Hour + Target.');
- production.push({id:Date.now(),line,hour,target,actual,eff});
+ const sam=lineAvgSam(line);
+ // Count unique allocated operators; do not count extra-support placeholder rows.
+ const allocatedRows=(lastAllocation||[]).filter(r=>String(r.line)===String(line)&&r.status!=='EXTRA MANPOWER'&&r.operatorId!=null);
+ const allocatedManpower=new Set(allocatedRows.map(r=>String(r.operatorId))).size;
+ const manpowerInput=document.getElementById('prodManpower');
+ const enteredManpower=Number(manpowerInput?.value)||0;
+ const manpower=enteredManpower>0?enteredManpower:allocatedManpower;
+ const hours=1; // Production entry is one hour.
+ const calculatedEff=(sam>0&&manpower>0)?Math.round(actual*sam/(manpower*hours*60)*100):0;
+ const enteredEff=Number(document.getElementById('prodEfficiency').value)||0;
+ if(sam<=0) return alert('Style SAM not found. Check that the selected line has a style with operation SAM values.');
+ if(manpower<=0 && enteredEff<=0) return alert('Actual manpower not found. Enter Actual Manpower or complete operator allocation.');
+ const eff=calculatedEff>0?calculatedEff:enteredEff;
+ production.push({id:Date.now(),line,hour,target,actual,eff,styleSam:sam,manpower,efficiencySamBasis:'full_style_sam'});
  const matching=orders.filter(o=>String(o.line)===String(line)); if(matching.length&&actual>0){matching[0].produced=(Number(matching[0].produced)||0)+actual;}
  autoSave();renderProduction();drawProductionChart();renderOrders();drawHome();
- ['prodHour','prodTarget','prodActual','prodEfficiency'].forEach(k=>document.getElementById(k).value='');
+ ['prodHour','prodTarget','prodActual','prodManpower','prodEfficiency'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
 }
 function deleteProduction(id){if(!confirm('Delete this production entry?'))return;const x=production.find(p=>p.id===id);if(x){const matching=orders.filter(o=>String(o.line)===String(x.line));if(matching.length)matching[0].produced=Math.max(0,(Number(matching[0].produced)||0)-(Number(x.actual)||0));}production=production.filter(p=>p.id!==id);autoSave();renderProduction();drawProductionChart();renderOrders();drawHome();}
 function renderProduction(){
  const tb=document.getElementById('productionTable'); if(!tb)return;
- tb.innerHTML=production.slice().reverse().map(p=>{const ach=p.target?Math.round(p.actual/p.target*100):0;return `<tr><td>Line ${p.line}</td><td>${p.hour}</td><td>${p.target}</td><td>${p.actual}</td><td>${ach}%</td><td>${p.eff||0}%</td><td><button class="danger" onclick="deleteProduction(${p.id})">DELETE</button></td></tr>`}).join('')||'<tr><td colspan="7">No production entries.</td></tr>';
+ tb.innerHTML=production.slice().reverse().map(p=>{const ach=p.target?Math.round(p.actual/p.target*100):0;return `<tr><td>Line ${p.line}</td><td>${p.hour}</td><td>${p.target}</td><td>${p.actual}</td><td>${ach}%</td><td>${p.manpower||'-'}</td><td>${p.styleSam||'-'}</td><td>${p.eff||0}%</td><td><button class="danger" onclick="deleteProduction(${p.id})">DELETE</button></td></tr>`}).join('')||'<tr><td colspan="9">No production entries.</td></tr>';
 }
 function drawProductionChart(){
  const c=document.getElementById('productionChart');if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.font='13px Arial';ctx.fillStyle='#17202a';ctx.fillText('Actual Production by Line',20,20);
@@ -1290,9 +1371,13 @@ function refreshEodLineSelect(){
  const h=document.getElementById('eodHours'); if(h&&!h.value)h.value=document.getElementById('workingHours')?.value||8;
 }
 function lineAvgSam(lineId){
- const rows=(lastAllocation||[]).filter(r=>String(r.line)===String(lineId)&&Number(r.sam)>0);
- if(!rows.length)return 0;
- return Math.round((rows.reduce((a,r)=>a+Number(r.sam||0),0)/rows.length)*100)/100;
+ // Garment SAM = sum of every operation SAM for the style assigned to this line.
+ const line=lines.find(l=>String(l.id)===String(lineId));
+ if(!line || line.style==='' || line.style==null)return 0;
+ const style=styles[Number(line.style)] || styles.find(st=>st && String(st.style)===String(line.style));
+ if(!style || !Array.isArray(style.ops) || !style.ops.length)return 0;
+ const total=style.ops.reduce((sum,op)=>sum+(Number(op.sam)||0),0);
+ return total>0?Math.round(total*100)/100:0;
 }
 function lineTarget(lineId){
  const r=(lastLineReport||[]).find(x=>String(x.line)===String(lineId));
@@ -1302,7 +1387,7 @@ function lineBreakdownMinutes(lineId,date){return (breakdowns||[]).filter(b=>Str
 function saveEodEntry(){
  const line=document.getElementById('eodLine').value, date=document.getElementById('eodDate').value||todayISO(), actual=Number(document.getElementById('eodActual').value), manpower=Number(document.getElementById('eodManpower').value), hours=Number(document.getElementById('eodHours').value)||Number(document.getElementById('workingHours')?.value||8), samInput=Number(document.getElementById('eodSam').value);
  if(!line)return alert('Select Line.'); if(!Number.isFinite(actual)||actual<0)return alert('Enter Actual Production Qty.'); if(!Number.isFinite(manpower)||manpower<0)return alert('Enter Manpower.');
- const sam=samInput>0?samInput:lineAvgSam(line); const target=lineTarget(line); const eff=(sam&&manpower&&hours)?Math.round(actual*sam/(manpower*hours*60)*100):0;
+ const sam=lineAvgSam(line)>0?lineAvgSam(line):(samInput>0?samInput:0); const target=lineTarget(line); const eff=(sam&&manpower&&hours)?Math.round(actual*sam/(manpower*hours*60)*100):0;
  const idx=eodEntries.findIndex(x=>String(x.line)===String(line)&&String(x.date)===String(date)); const row={id:idx>=0?eodEntries[idx].id:Date.now(),date,line,actual,target,manpower,sam,hours,eff};
  if(idx>=0)eodEntries[idx]=row;else eodEntries.push(row);
  // Also feed the existing production dashboard with the manual EOD quantity as a daily entry.
@@ -1706,7 +1791,7 @@ document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='
 // Always show the login screen when the app starts, so FORGOT PASSWORD / RESET PASSWORD is accessible.
 currentUser='';
 localStorage.removeItem('lineBalancingCurrentUser');
-document.getElementById('loginScreen').style.display='flex';
+document.getElementById('loginScreen').style.display='none';
 
 </script>
 
@@ -1825,8 +1910,8 @@ function saveManagementContact(){
  managementContacts.push({name,designation,mobile}); autoSave(); renderContacts(); renderSendAllocation();
  ['managerName','managerDesignation','managerMobile'].forEach(id=>document.getElementById(id).value='');
 }
-function deleteSupervisorContact(line){supervisorContacts=supervisorContacts.filter(x=>String(x.line)!==String(line));autoSave();renderContacts();renderSendAllocation();}
-function deleteManagementContact(idx){managementContacts.splice(idx,1);autoSave();renderContacts();renderSendAllocation();}
+function deleteSupervisorContact(line){if(!confirm('Delete the supervisor contact for Line '+line+'?'))return;supervisorContacts=(supervisorContacts||[]).filter(x=>String(x.line)!==String(line));autoSave();renderContacts();renderSendAllocation();}
+function deleteManagementContact(idx){if(!managementContacts||!managementContacts[idx])return;if(!confirm('Delete this management contact?'))return;managementContacts.splice(idx,1);autoSave();renderContacts();renderSendAllocation();}
 function renderContacts(){
  const a=document.getElementById('supervisorContactList'),b=document.getElementById('managementContactList'); if(a)a.innerHTML=supervisorContacts.length?'<div class="tablewrap"><table><thead><tr><th>Line</th><th>Supervisor</th><th>Mobile</th><th>Action</th></tr></thead><tbody>'+supervisorContacts.map(x=>'<tr><td>Line '+x.line+'</td><td>'+x.name+'</td><td>'+x.mobile+'</td><td><button class="danger" onclick="deleteSupervisorContact('+x.line+')">DELETE</button></td></tr>').join('')+'</tbody></table></div>':'<div class="small">No supervisors registered.</div>';
  if(b)b.innerHTML=managementContacts.length?'<div class="tablewrap"><table><thead><tr><th>Name</th><th>Designation</th><th>Mobile</th><th>Action</th></tr></thead><tbody>'+managementContacts.map((x,i)=>'<tr><td>'+x.name+'</td><td>'+x.designation+'</td><td>'+x.mobile+'</td><td><button class="danger" onclick="deleteManagementContact('+i+')">DELETE</button></td></tr>').join('')+'</tbody></table></div>':'<div class="small">No management staff registered.</div>';
@@ -1842,29 +1927,43 @@ function allocationMessage(line){
  let text='LINE BALANCING APP\nAllocation Date: '+date+'\n';
  if(line!=null)text+='Line: '+line+'\n';
  if(!rows.length)text+='No current allocation available.';
- else rows.forEach(r=>{text+='\nLine '+r.line+' | '+r.style+' | '+r.operatorId+' - '+r.operatorName+' | '+r.operation+' | Eff '+r.eff+'%';});
+ else { const lineIds=[...new Set(rows.map(r=>String(r.line)))]; lineIds.forEach(id=>{const lr=(lastLineReport||[]).find(x=>String(x.line)===id)||{};text+='\nLINE '+id+' TARGET: '+(lr.targetQty||lr.dailyQty||0)+' pcs/day | '+(lr.hourlyQty||0)+' pcs/hour | Efficiency '+(lr.eff||0)+'%\n';rows.filter(r=>String(r.line)===id).forEach(r=>{text+='  '+r.operatorId+' - '+r.operatorName+' | '+r.operation+' | SAM '+r.sam+' | Eff '+r.eff+'%\n';});});}
  text+='\n\nOpen current allocation: '+allocationLinkForCurrentUser(line);
  return text;
 }
+function autoBalanceAndSendToSupervisors(){
+  // Run allocation from this user click, then open WhatsApp with each line's allocation.
+  autoBalance();
+  if(!(lastAllocation||[]).length){return;}
+  const contacts=(supervisorContacts||[]).filter(x=>x.mobile && (lastAllocation||[]).some(r=>String(r.line)===String(x.line)));
+  if(!contacts.length){alert('Auto allocation completed, but no line supervisor mobile numbers are registered. Add them under SEND & CONTACTS.');return;}
+  contacts.forEach((x,i)=>setTimeout(()=>sendWhatsApp(x.mobile,allocationMessage(x.line)),i*900));
+  const msg=document.getElementById('sendAllAllocationMsg');
+  if(msg)msg.textContent='Auto allocation completed. WhatsApp opened for '+contacts.length+' line supervisor(s); review and tap Send in each chat.';
+}
+
 function sendCurrentAllocationToAll(){
  const recipients=[];
  (supervisorContacts||[]).forEach(x=>{if(x.mobile)recipients.push({mobile:x.mobile,text:allocationMessage(x.line)});});
  (managementContacts||[]).forEach(x=>{if(x.mobile)recipients.push({mobile:x.mobile,text:allocationMessage(null)});});
- const msg=document.getElementById('sendAllAllocationMsg');
- if(!recipients.length){if(msg)msg.textContent='No supervisor or management contacts registered.';return;}
- if(msg)msg.textContent='Opening WhatsApp for '+recipients.length+' recipient(s)…';
- recipients.forEach((r,i)=>setTimeout(()=>sendWhatsApp(r.mobile,r.text),i*700));
- setTimeout(()=>{if(msg)msg.textContent='Send started for all registered contacts.';},Math.max(0,recipients.length*700));
+ const msgIds=['sendAllAllocationMsg','sendAllAllocationMsgAdmin'];
+ const setMsg=t=>msgIds.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=t;});
+ if(!recipients.length){setMsg('No supervisor or management contacts registered.');return;}
+ setMsg('Opening WhatsApp for '+recipients.length+' recipient(s)…');
+ recipients.forEach((r,i)=>setTimeout(()=>sendWhatsApp(r.mobile,r.text),i*900));
+ setTimeout(()=>setMsg('WhatsApp opened for the registered contacts. Review and tap Send in each WhatsApp chat.'),Math.max(0,recipients.length*900));
 }
 
 function sendWhatsApp(mobile,text){
  const m=normalizeMobile(mobile); if(!m)return; window.open('https://wa.me/'+m+'?text='+encodeURIComponent(text),'_blank');
 }
 function renderSendAllocation(){
- const root=document.getElementById('sendAllocationList'); if(!root)return;
- const su=supervisorContacts.map(x=>'<div class="linebox"><b>LINE '+x.line+'</b> — '+x.name+' <span class="muted">'+x.mobile+'</span><button class="green" style="float:right" onclick="sendWhatsApp(\''+x.mobile+'\',allocationMessage('+x.line+'))">SEND</button><div class="small" style="margin-top:8px">Only Line '+x.line+' allocation will be included.</div></div>').join('');
- const mg=managementContacts.map((x,i)=>'<div class="linebox"><b>'+x.designation+'</b> — '+x.name+' <span class="muted">'+x.mobile+'</span><button class="green" style="float:right" onclick="sendWhatsApp(\''+x.mobile+'\',allocationMessage(null))">SEND</button><div class="small" style="margin-top:8px">Full current allocation for all lines.</div></div>').join('');
- root.innerHTML=(su||'<div class="small">No supervisor contacts registered.</div>')+'<hr style="margin:14px 0;border:0;border-top:1px solid #ddd">'+(mg||'<div class="small">No management contacts registered.</div>');
+ const roots=['sendAllocationList','sendAllocationListAdmin'].map(id=>document.getElementById(id)).filter(Boolean);
+ if(!roots.length)return;
+ const su=(supervisorContacts||[]).map(x=>'<div class="linebox"><b>LINE '+escapeHtml(x.line)+'</b> — '+escapeHtml(x.name)+' <span class="muted">'+escapeHtml(x.mobile)+'</span><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="green" onclick="sendWhatsApp('+JSON.stringify(String(x.mobile))+',allocationMessage('+Number(x.line)+'))">📲 SEND WHATSAPP</button><button class="danger" onclick="deleteSupervisorContact('+Number(x.line)+')">🗑 DELETE CONTACT</button></div><div class="small" style="margin-top:8px">Only Line '+escapeHtml(x.line)+' allocation will be included.</div></div>').join('');
+ const mg=(managementContacts||[]).map((x,i)=>'<div class="linebox"><b>'+escapeHtml(x.designation)+'</b> — '+escapeHtml(x.name)+' <span class="muted">'+escapeHtml(x.mobile)+'</span><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="green" onclick="sendWhatsApp('+JSON.stringify(String(x.mobile))+',allocationMessage(null))">📲 SEND WHATSAPP</button><button class="danger" onclick="deleteManagementContact('+i+')">🗑 DELETE CONTACT</button></div><div class="small" style="margin-top:8px">Full current allocation for all lines.</div></div>').join('');
+ const html=(su||'<div class="small">No supervisor contacts registered.</div>')+'<hr style="margin:14px 0;border:0;border-top:1px solid #ddd">'+(mg||'<div class="small">No management staff registered.</div>');
+ roots.forEach(root=>root.innerHTML=html);
 }
 </script>
 
@@ -1938,20 +2037,24 @@ window.initCompactSections=initCompactSections;
 <div class="card">
 <h2>CREATE / UPDATE USER</h2>
 <div class="three">
-<input id="hubUserId" placeholder="User ID">
-<input id="hubUserPass" type="password" placeholder="Password">
-<select id="hubUserRole">
-<option value="planning">Planning</option>
-<option value="production_manager">Production Manager</option>
-<option value="ie">IE</option>
-<option value="supervisor">Supervisor</option>
-<option value="mechanic_manager">Mechanic Manager</option>
-<option value="management">Management</option>
-<option value="admin">Admin</option>
+<input id="hubUserId" placeholder="User Name / User ID">
+<input id="hubUserPass" type="password" placeholder="Password (min. 4 characters)">
+<select id="hubUserRole" onchange="updateRoleAccessFields()">
+<option value="admin">Admin</option><option value="production_manager">Production Manager</option><option value="ie">IE</option><option value="ie_executive">IE Executive</option><option value="management">Management Staff</option><option value="supervisor">Supervisor</option><option value="mechanic">Mechanic</option><option value="mechanic_manager">Mechanic Manager / Maintenance Manager</option><option value="planning">Planning Manager</option>
 </select>
-<input id="hubUserLine" type="number" min="1" placeholder="Supervisor Line (only for Supervisor)">
+<select id="hubAccessMode" onchange="updateRoleAccessFields()"><option value="selected">Selected Line Access</option><option value="full">Full Access</option><option value="planning_only">Planning Only</option><option value="maintenance_only">Maintenance Only</option></select>
+<input id="hubUserLines" placeholder="Line Access (e.g. 1,2,5,7)">
+<input id="hubUserMobile" type="tel" placeholder="WhatsApp Number (with country code)">
 </div>
+<p class="small">Select Full Access or enter multiple line numbers separated by commas. Planning Manager is restricted to Planning. WhatsApp number is used for Send & Contacts.</p>
 <button class="green" onclick="saveRoleUser()">👤 SAVE USER</button>
+</div>
+<div class="card" id="adminSendPanel">
+<h2>📲 MESSAGE SEND CENTER</h2>
+<p class="small">Saved contacts appear here automatically. Use individual SEND for one person, or SEND TO ALL for every registered supervisor and management contact.</p>
+<button class="primary" onclick="sendCurrentAllocationToAll()" style="margin:10px 0">📲 SEND TO ALL</button>
+<div id="sendAllAllocationMsgAdmin" class="small" style="margin-bottom:10px"></div>
+<div id="sendAllocationListAdmin"></div>
 </div>
 <div class="card" id="userAccessDeleteCard">
 <h2>🗑️ USER ACCESS DELETE</h2>
@@ -2038,8 +2141,8 @@ let lbSharedPlanning=(function(){try{const x=JSON.parse(localStorage.getItem(LB_
 let lbCurrentRole='';
 
 const LB_ROLE_LABELS={
- admin:'Admin',planning:'Planning',production_manager:'Production Manager',ie:'IE',
- supervisor:'Supervisor',mechanic_manager:'Mechanic Manager',management:'Management'
+ admin:'Admin',planning:'Planning Manager',production_manager:'Production Manager',ie:'IE',ie_executive:'IE Executive',
+ supervisor:'Supervisor',mechanic:'Mechanic',mechanic_manager:'Mechanic Manager / Maintenance Manager',management:'Management Staff'
 };
 function saveLbRoleMeta(){try{localStorage.setItem(LB_ROLE_KEY,JSON.stringify(lbRoleMeta));}catch(e){}}
 function saveLbPlanning(){try{localStorage.setItem(LB_PLAN_KEY,JSON.stringify(lbSharedPlanning));}catch(e){}}
@@ -2048,24 +2151,30 @@ function lbRoleOf(u){
   if(meta&&meta.role)return meta.role;
   return userRole((USERS||{})[u]);
 }
-function lbLineOf(u){
-  const meta=lbRoleMeta[String(u).toLowerCase()];
-  return meta&&meta.line ? Number(meta.line) : null;
-}
+function lbLineOf(u){const meta=lbRoleMeta[String(u).toLowerCase()];return meta&&meta.line?Number(meta.line):null;}
+function lbLinesOf(u){const meta=lbRoleMeta[String(u).toLowerCase()];return meta&&Array.isArray(meta.lines)?meta.lines:(meta&&meta.line?[Number(meta.line)]:[]);}
+function lbHasFullAccess(u){const meta=lbRoleMeta[String(u).toLowerCase()];return !!(meta&&meta.accessMode==='full');}
 function lbAccess(role){
   return {
     admin:['home','profile','orders','main','efficiency','bottleneck','contacts','breakdown','eod','mechanic','planningHub','allocationHub','supervisorHub','adminHub'],
     planning:['home','profile','planningHub'],
     production_manager:['home','profile','planningHub','allocationHub','main','efficiency','bottleneck','orders','contacts','eod'],
     ie:['home','profile','planningHub','allocationHub','main','efficiency','bottleneck','orders','contacts','eod'],
-    supervisor:['home','profile','supervisorHub','eod'],
+    ie_executive:['home','profile','planningHub','allocationHub','main','efficiency','bottleneck','orders','contacts','eod'],
+    supervisor:['home','profile','orders','main','efficiency','bottleneck','breakdown','eod','supervisorHub'],
+    mechanic:['home','profile','mechanic','breakdown'],
     mechanic_manager:['home','profile','mechanic','breakdown'],
     management:['home','profile','efficiency','bottleneck','reports','eod']
   }[role]||['home','profile'];
 }
 function applyLbRoleUI(){
   const role=lbCurrentRole||lbRoleOf(currentUser);
+  const meta=lbRoleMeta[String(currentUser).toLowerCase()]||{};
   const allow=new Set(lbAccess(role));
+  if(meta.accessMode==='planning_only'){allow.clear();['home','profile','planningHub'].forEach(x=>allow.add(x));}
+  // Never let a stale Maintenance-only setting override a Supervisor role.
+  if(meta.accessMode==='maintenance_only' && role!=='supervisor'){allow.clear();['home','profile','mechanic','breakdown'].forEach(x=>allow.add(x));}
+  if(meta.accessMode==='selected'&&Array.isArray(meta.lines)&&meta.lines.length&&role!=='supervisor'){/* module permissions remain role-based; line filtering is applied in reports/portal */}
   const navMap={navHome:'home',navProfile:'profile',navOrder:'orders',navMain:'main',navEff:'efficiency',navBottle:'bottleneck',navContacts:'contacts',navBreakdown:'breakdown',navEod:'eod',navMechanic:'mechanic',navPlanning:'planningHub',navAllocationHub:'allocationHub',navSupervisorHub:'supervisorHub',navAdminHub:'adminHub'};
   Object.entries(navMap).forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.style.display=allow.has(key)?'':'none';});
   const title=document.getElementById('currentUser');
@@ -2082,8 +2191,8 @@ function showScreen(name){
   const map={home:'homeScreen',profile:'profileScreen',orders:'ordersScreen',main:'mainScreen',efficiency:'efficiencyScreen',bottleneck:'bottleneckScreen',contacts:'contactsScreen',breakdown:'breakdownScreen',eod:'eodScreen',mechanic:'mechanicScreen',planningHub:'planningHubScreen',allocationHub:'allocationHubScreen',supervisorHub:'supervisorHubScreen',adminHub:'adminHubScreen'};
   const target=document.getElementById(map[name]||'homeScreen');
   if(!target)return;
-  const role=lbCurrentRole||lbRoleOf(currentUser);
-  if(!lbAccess(role).includes(name)&&name!=='home'&&name!=='profile'){alert('This login does not have access to this module.');return;}
+  const role=lbCurrentRole||lbRoleOf(currentUser); const meta=lbRoleMeta[String(currentUser).toLowerCase()]||{}; const allowed=meta.accessMode==='planning_only'?['home','profile','planningHub']:(meta.accessMode==='maintenance_only' && role!=='supervisor')?['home','profile','mechanic','breakdown']:lbAccess(role);
+  if(!allowed.includes(name)&&name!=='home'&&name!=='profile'){alert('This login does not have access to this module.');return;}
   document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active')); target.classList.add('active');
   document.querySelectorAll('.navbtn').forEach(x=>x.classList.remove('active'));
   const nav={home:'navHome',profile:'navProfile',orders:'navOrder',main:'navMain',efficiency:'navEff',bottleneck:'navBottle',contacts:'navContacts',breakdown:'navBreakdown',eod:'navEod',mechanic:'navMechanic',planningHub:'navPlanning',allocationHub:'navAllocationHub',supervisorHub:'navSupervisorHub',adminHub:'navAdminHub'};
@@ -2130,24 +2239,38 @@ window.logout=function(){
 };
 
 /* Create/update role user */
+window.updateRoleAccessFields=function(){
+ const role=document.getElementById('hubUserRole')?.value||'supervisor';
+ const mode=document.getElementById('hubAccessMode'); const lines=document.getElementById('hubUserLines');
+ if(role==='planning'){mode.value='planning_only';mode.disabled=true;lines.disabled=true;lines.value='';}
+ else {mode.disabled=false;lines.disabled=mode.value==='full'||mode.value==='planning_only'||mode.value==='maintenance_only';if(lines.disabled)lines.value='';}
+ if(role==='mechanic'||role==='mechanic_manager'){if(mode.value==='planning_only')mode.value='maintenance_only';}
+};
 window.saveRoleUser=function(){
-  if(lbCurrentRole!=='admin')return alert('Admin login required.');
-  const id=document.getElementById('hubUserId').value.trim(),pw=document.getElementById('hubUserPass').value,role=document.getElementById('hubUserRole').value,line=Number(document.getElementById('hubUserLine').value)||null;
-  if(!id||!pw)return alert('Enter User ID and Password.');
-  USERS=readUsers();
-  const key=Object.keys(USERS).find(k=>k.toLowerCase()===id.toLowerCase())||id;
-  USERS[key]={password:pw,role}; saveUsers();
-  lbRoleMeta[key.toLowerCase()]={role,line:role==='supervisor'?line:null};
-  saveLbRoleMeta(); renderRoleUsers();
-  alert('✅ User saved: '+key+' • '+LB_ROLE_LABELS[role]+(role==='supervisor'&&line?' • Line '+line:''));
+ if(lbCurrentRole!=='admin')return alert('Admin login required.');
+ const id=document.getElementById('hubUserId').value.trim(),pw=document.getElementById('hubUserPass').value,role=document.getElementById('hubUserRole').value,mode=document.getElementById('hubAccessMode').value,mobile=normalizeMobile(document.getElementById('hubUserMobile').value);
+ const raw=document.getElementById('hubUserLines').value.trim();
+ const lines=raw?raw.split(',').map(x=>Number(x.trim())).filter(n=>Number.isInteger(n)&&n>0):[];
+ if(!id||!pw)return alert('Enter User ID and Password.'); if(pw.length<4)return alert('Password must be at least 4 characters.');
+ if(role==='supervisor'&&mode==='selected'&&!lines.length)return alert('Enter the Supervisor assigned line.');
+ if(mode==='selected'&&!lines.length&&role!=='planning')return alert('Enter one or more line numbers, or choose Full Access.');
+ USERS=readUsers();const key=Object.keys(USERS).find(k=>k.toLowerCase()===id.toLowerCase())||id;
+ USERS[key]={password:pw,role};saveUsers();
+ lbRoleMeta[key.toLowerCase()]={role,line:lines.length===1?lines[0]:null,lines,accessMode:mode,mobile};saveLbRoleMeta();
+ // Keep the send/contact center synchronized with the user master.
+ if(role==='supervisor'&&mobile&&lines.length){lines.forEach(line=>{supervisorContacts=supervisorContacts.filter(x=>String(x.line)!==String(line));supervisorContacts.push({line,name:key,mobile});});}
+ else if(mobile){managementContacts=managementContacts.filter(x=>String(x.userId||'').toLowerCase()!==key.toLowerCase());managementContacts.push({userId:key,name:key,designation:LB_ROLE_LABELS[role]||role,mobile,accessMode:mode,lines});}
+ try{saveUserData();}catch(e){} saveLbRoleMeta();renderRoleUsers();renderContacts();renderSendAllocation();
+ ['hubUserId','hubUserPass','hubUserLines','hubUserMobile'].forEach(id=>document.getElementById(id).value='');
+ alert('User saved: '+key+' • '+(LB_ROLE_LABELS[role]||role)+' • '+(mode==='full'?'Full Access':mode==='planning_only'?'Planning Only':mode==='maintenance_only'?'Maintenance Only':'Lines '+lines.join(', ')));
 };
 function renderRoleUsers(){
   const el=document.getElementById('roleUserTable'); if(!el)return;
   USERS=readUsers();
   el.innerHTML=Object.keys(USERS).map(k=>{
-    const role=lbRoleOf(k),line=lbLineOf(k);
-    const access=role==='supervisor'?'Assigned line only':role==='planning'?'Planning entry only':role==='production_manager'||role==='ie'?'Full style/line allocation + balance':role==='mechanic_manager'?'Mechanic / breakdown':'Dashboard / reports';
-    return `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(LB_ROLE_LABELS[role]||role)}</td><td>${line?'Line '+line:'-'}</td><td>${escapeHtml(access)}</td></tr>`;
+    const role=lbRoleOf(k),meta=lbRoleMeta[String(k).toLowerCase()]||{},line=lbLineOf(k),lines=lbLinesOf(k);
+    const access=meta.accessMode==='full'?'Full Access':meta.accessMode==='planning_only'?'Planning Only':meta.accessMode==='maintenance_only'?'Maintenance Only':lines.length?'Lines '+lines.join(', '):(role==='planning'?'Planning Only':'Role-based');
+    return `<tr><td>${escapeHtml(k)}<div class="small">${escapeHtml(meta.mobile||'')}</div></td><td>${escapeHtml(LB_ROLE_LABELS[role]||role)}</td><td>${lines.length?escapeHtml(lines.join(', ')):'-'}</td><td>${escapeHtml(access)}</td></tr>`;
   }).join('');
   refreshUserAccessDeleteSelect();
 }
@@ -2163,46 +2286,21 @@ function refreshUserAccessDeleteSelect(){
   }).join('');
   if(choices.includes(previous))sel.value=previous;
 }
-window.deleteSelectedAccessUser=function(){
+window.deleteSelectedAccessUser=async function(){
   const msgEl=document.getElementById('userAccessDeleteMsg');
   const say=t=>{if(msgEl)msgEl.textContent=t;};
-  if(String(lbCurrentRole).toLowerCase()!=='admin'){say('Admin login required.');return alert('Admin login required.');}
-  const sel=document.getElementById('userAccessDeleteSelect');
-  const chosen=sel?sel.value:'';
-  if(!chosen){say('Please select a user first.');return alert('Please select a user first.');}
-  USERS=readUsers();
-  const key=Object.keys(USERS).find(x=>x.toLowerCase()===String(chosen).toLowerCase());
-  if(!key){say('User not found.');refreshUserAccessDeleteSelect();return;}
-  if(key.toLowerCase()==='admin'){say('Admin account is protected.');return alert('Admin account is protected.');}
-  if(key.toLowerCase()===String(currentUser||'').toLowerCase()){say('You cannot delete the account currently logged in.');return alert('You cannot delete the account currently logged in.');}
-  if(!confirm('Delete user account "'+key+'" and its saved local data? This cannot be undone.'))return;
-  delete USERS[key];
-  if(!saveUsers()){USERS=readUsers();say('Unable to save deletion on this device.');return alert('Unable to save deletion on this device.');}
-  try{delete lbRoleMeta[key.toLowerCase()];if(typeof saveLbRoleMeta==='function')saveLbRoleMeta();}catch(e){}
-  try{localStorage.removeItem('lineBalancingData_'+key);}catch(e){}
-  if(sel)sel.value='';
-  renderRoleUsers();
-  if(typeof renderUsers==='function')renderUsers();
-  say('User deleted successfully: '+key);
-  alert('User deleted: '+key);
-};
-window.removeRoleUser=function(k){
   if(String(lbCurrentRole).toLowerCase()!=='admin')return alert('Admin login required.');
-  USERS=readUsers();
-  const key=Object.keys(USERS).find(x=>x.toLowerCase()===String(k).toLowerCase());
-  if(!key)return alert('User not found.');
-  if(key.toLowerCase()==='admin')return alert('Admin cannot be deleted.');
-  if(key.toLowerCase()===String(currentUser).toLowerCase())return alert('The current admin account cannot be deleted while logged in.');
-  if(!confirm('Delete '+key+'?'))return;
-  delete USERS[key];
-  const saved=saveUsers();
-  if(!saved)return alert('Unable to save the deletion on this device.');
-  delete lbRoleMeta[key.toLowerCase()];
-  saveLbRoleMeta();
-  try{localStorage.removeItem('lineBalancingData_'+key);}catch(e){}
-  renderRoleUsers();
-  renderUsers();
-  alert('✅ User deleted: '+key);
+  const sel=document.getElementById('userAccessDeleteSelect'), chosen=sel?sel.value:'';
+  if(!chosen){say('Please select a user first.');return alert('Please select a user first.');}
+  if(typeof window.deleteUserAccount!=='function')return alert('Cloud delete function unavailable. Reload the updated HTML.');
+  await window.deleteUserAccount(chosen);
+  if(sel)sel.value='';
+  say('Cloud delete request sent. Deploy the updated Edge Function if the account still logs in.');
+};
+window.removeRoleUser=async function(k){
+  if(String(lbCurrentRole).toLowerCase()!=='admin')return alert('Admin login required.');
+  if(typeof window.deleteUserAccount!=='function')return alert('Cloud delete function unavailable. Reload the updated HTML.');
+  await window.deleteUserAccount(k);
 };
 
 /* Shared Planning */
@@ -2514,95 +2612,449 @@ document.addEventListener('DOMContentLoaded',()=>{
 })();
 </script>
 
-<!-- SUPABASE AUTH + SHARED CLOUD DATA -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- CLOUD DATABASE MODULE - EDGE FUNCTION AUTH + SHARED DATA -->
 <script>
 (function(){
-  const CONFIG={URL:"https://garsuswjxdkqlnowbdcs.supabase.co",KEY:"sb_publishable_yvws9HDk5yPK-kgr7J6ikg_nHfxQVnO",TABLE:"line_balancing_user_data"};
-  const client=window.supabase?.createClient(CONFIG.URL,CONFIG.KEY);
-  let authUser=null, saveTimer=null, syncing=false;
-  window.LINE_BALANCE_CLOUD={configured:!!client,status:client?"CLOUD READY - PLEASE LOG IN":"CLOUD SDK NOT LOADED"};
-  function status(s){window.LINE_BALANCE_CLOUD.status=s; const el=document.getElementById('cloudStatus'); if(el)el.textContent=s;}
-  function message(s){const el=document.getElementById('loginMsg');if(el)el.textContent=s;}
-  function snapshot(){return {styles,operators,present:[...present],absent:[...absent],attendanceTotal:[...attendanceTotal],lines,orders,production,lastLineReport,lastAllocation,lastBottleData,allocationHistory,supervisorContacts,managementContacts,breakdowns,eodEntries};}
-  function applyData(d){
-    if(!d||typeof d!=='object')return;
-    styles=d.styles||[]; operators=d.operators||[]; present=new Set(d.present||[]); absent=new Set(d.absent||[]); attendanceTotal=new Set(d.attendanceTotal||[]); lines=d.lines||[]; orders=d.orders||[]; production=d.production||[];
-    lastLineReport=Array.isArray(d.lastLineReport)?d.lastLineReport:[]; lastAllocation=Array.isArray(d.lastAllocation)?d.lastAllocation:[]; allocationHistory=Array.isArray(d.allocationHistory)?d.allocationHistory:[]; supervisorContacts=Array.isArray(d.supervisorContacts)?d.supervisorContacts:[]; managementContacts=Array.isArray(d.managementContacts)?d.managementContacts:[]; breakdowns=Array.isArray(d.breakdowns)?d.breakdowns:[]; eodEntries=Array.isArray(d.eodEntries)?d.eodEntries:[]; lastBottleData=d.lastBottleData||{};
-    try{localStorage.setItem('lineBalancingData_'+currentUser,JSON.stringify({...d}));}catch(e){}
-    ['refreshStyles','refreshContactLineSelect','renderContacts','renderSendAllocation','renderOperatorTable','renderAttendance','refreshLines','drawDashboard','refreshOrderLineSelect','renderOrders','renderProduction','drawProductionChart','drawHome','renderUsers','renderEodReport','renderBottleneck'].forEach(fn=>{try{if(typeof window[fn]==='function')window[fn]();}catch(e){}});
+  const CLOUD_CONFIG={
+    SUPABASE_URL:"https://garsuswjxdkqlnowbdcs.supabase.co",
+    FUNCTION_URL:"https://garsuswjxdkqlnowbdcs.supabase.co/functions/v1/line-balancing-api",
+    SUPABASE_ANON_KEY:"sb_publishable_yvws9HDk5yPK-kgr7J6ikg_nHfxQVnO"
+  };
+  window.LINE_BALANCE_CLOUD={configured:true,status:"CLOUD READY - LOGIN REQUIRED",syncing:false};
+  let cloudReady=false,saveTimer=null,saveInFlight=null,activeUsername="",activePassword="",lastCloudUpdatedAt="",cloudPollHandle=null;
+  function setStatus(s){window.LINE_BALANCE_CLOUD.status=s;}
+  async function api(action,extra={}){
+    const response=await fetch(CLOUD_CONFIG.FUNCTION_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","apikey":CLOUD_CONFIG.SUPABASE_ANON_KEY},
+      body:JSON.stringify({action,username:activeUsername,password:activePassword,...extra})
+    });
+    let data={};try{data=await response.json();}catch(e){}
+    if(!response.ok || data.error) throw new Error(data.error||("Cloud request failed ("+response.status+")"));
+    return data;
   }
-  async function cloudRequest(method,body){
-    if(!authUser)throw new Error('Please log in to Supabase first.');
-    const payload={user_id:authUser.id,app_data:body,updated_at:new Date().toISOString()};
-    const {data,error}=await client.from(CONFIG.TABLE).upsert(payload,{onConflict:'user_id'}).select('user_id');
-    if(error)throw error;return data;
+  function cloudPayload(){return {
+    styles,operators,present:[...present],absent:[...absent],attendanceTotal:[...attendanceTotal],
+    lines,orders,production,lastLineReport,lastAllocation,lastBottleData,allocationHistory,
+    supervisorContacts,managementContacts,breakdowns,eodEntries
+  };}
+  function applyCloudData(d){
+    styles=d.styles||[];operators=d.operators||[];present=new Set(d.present||[]);absent=new Set(d.absent||[]);
+    attendanceTotal=new Set(d.attendanceTotal||[]);lines=d.lines||[];orders=d.orders||[];production=d.production||[];
+    lastLineReport=Array.isArray(d.lastLineReport)?d.lastLineReport:[];
+    lastAllocation=Array.isArray(d.lastAllocation)?d.lastAllocation:[];
+    allocationHistory=Array.isArray(d.allocationHistory)?d.allocationHistory:[];
+    supervisorContacts=Array.isArray(d.supervisorContacts)?d.supervisorContacts:[];
+    managementContacts=Array.isArray(d.managementContacts)?d.managementContacts:[];
+    breakdowns=Array.isArray(d.breakdowns)?d.breakdowns:[];eodEntries=Array.isArray(d.eodEntries)?d.eodEntries:[];
+    lastBottleData=d.lastBottleData||{};
+    // Restore calculated target/report when cloud data has allocations but the report array is missing.
+    if(lastAllocation.length && (!Array.isArray(lastLineReport)||!lastLineReport.length)){
+      try{if(typeof rebuildReportsFromAllocation==="function")rebuildReportsFromAllocation();}catch(e){console.warn("Could not rebuild target report from cloud allocation",e);}
+    }
+    try{if(typeof originalSaveUserData==="function")originalSaveUserData();}catch(e){}
+    refreshAllUI();
+    try{if(typeof renderAllocationTable==="function")renderAllocationTable();}catch(e){}
   }
   async function pushCloud(){
-    if(!client||!authUser||!currentUser||syncing)return false;
-    try{await cloudRequest('POST',snapshot());status('CLOUD SYNCED ✓');return true;}
-    catch(e){console.error('Supabase save failed',e);status('CLOUD SAVE ERROR');return false;}
+    if(!cloudReady||!activeUsername||!activePassword)return false;
+    if(saveInFlight)return saveInFlight;
+    window.LINE_BALANCE_CLOUD.syncing=true;setStatus("SYNCING CLOUD...");
+    saveInFlight=(async()=>{try{const saved=await api("save",{app_data:cloudPayload()});if(saved.updated_at)lastCloudUpdatedAt=saved.updated_at;setStatus("CLOUD SYNCED ✓");return true;}
+      catch(e){setStatus("CLOUD SYNC ERROR - "+e.message);console.warn("Cloud save:",e);return false;}
+      finally{window.LINE_BALANCE_CLOUD.syncing=false;saveInFlight=null;}})();
+    return saveInFlight;
   }
   async function pullCloud(){
-    if(!client||!authUser)return false;
-    try{
-      const {data,error}=await client.from(CONFIG.TABLE).select('app_data').eq('user_id',authUser.id).maybeSingle();
-      if(error)throw error;
-      if(data?.app_data){syncing=true;applyData(data.app_data);syncing=false;status('CLOUD DATA LOADED ✓');return true;}
-      status('FIRST CLOUD SAVE');await pushCloud();return false;
-    }catch(e){syncing=false;console.error('Supabase load failed',e);status('CLOUD LOAD ERROR: '+(e.message||'check table/policy'));return false;}
+    setStatus("LOADING CLOUD DATA...");
+    try{const result=await api("load");
+      if(result.updated_at)lastCloudUpdatedAt=result.updated_at;
+      if(result.found&&result.app_data){applyCloudData(result.app_data);setStatus("CLOUD DATA LOADED ✓");return {found:true,error:false};}
+      setStatus("NO CLOUD DATA YET");return {found:false,error:false};
+    }catch(e){setStatus("CLOUD LOAD ERROR - "+e.message);console.warn("Cloud load:",e);return {found:false,error:true};}
   }
-  window.cloudSaveNow=pushCloud;window.cloudLoadNow=pullCloud;
-  const originalSave=window.saveUserData;
-  window.saveUserData=function(){try{if(typeof originalSave==='function')originalSave();}catch(e){} if(authUser){clearTimeout(saveTimer);saveTimer=setTimeout(pushCloud,500);}};
-  window.login=async function(){
-    if(!client){message('Cloud login is unavailable. Check internet and reload.');return;}
-    const email=(document.getElementById('loginUser')?.value||'').trim();
-    const password=document.getElementById('loginPass')?.value||'';
-    if(!email||!password){message('Enter the email address used when creating your Supabase user, and password.');return;}
-    message('Connecting to cloud…');status('SIGNING IN…');
+  function scheduleCloudSave(){if(!cloudReady||!activeUsername)return;clearTimeout(saveTimer);saveTimer=setTimeout(()=>pushCloud(),700);}
+  async function pollSharedCloud(){
+    if(!cloudReady||!activeUsername||!activePassword||saveInFlight||saveTimer)return;
     try{
-      const {data,error}=await client.auth.signInWithPassword({email,password});
-      if(error)throw error;
-      authUser=data.user;currentUser=email;
-      // Cloud accounts use email as the app identity. Give the project owner account
-      // the administrator UI role; other cloud accounts default to supervisor.
-      const cloudRole=(email.toLowerCase()==='nithiyananthanm@gmail.com')?'admin':'supervisor';
+      const result=await api("load");
+      if(!result.found||!result.app_data||!result.updated_at)return;
+      if(result.updated_at!==lastCloudUpdatedAt){
+        lastCloudUpdatedAt=result.updated_at;
+        applyCloudData(result.app_data);
+        setStatus("LIVE DATA UPDATED ✓");
+      }
+    }catch(e){console.warn("Cloud refresh:",e);}
+  }
+  function startCloudPolling(){
+    if(cloudPollHandle)clearInterval(cloudPollHandle);
+    cloudPollHandle=setInterval(pollSharedCloud,5000);
+  }
+  function refreshAllUI(){
+    try{if(typeof refreshStyles==="function")refreshStyles();}catch(e){}
+    try{if(typeof refreshContactLineSelect==="function")refreshContactLineSelect();}catch(e){}
+    try{if(typeof renderContacts==="function")renderContacts();}catch(e){}
+    try{if(typeof renderSendAllocation==="function")renderSendAllocation();}catch(e){}
+    try{if(typeof renderOperatorTable==="function")renderOperatorTable();}catch(e){}
+    try{if(typeof renderAttendance==="function")renderAttendance();}catch(e){}
+    try{if(typeof refreshLines==="function")refreshLines();}catch(e){}
+    try{if(typeof drawDashboard==="function")drawDashboard();}catch(e){}
+    try{if(typeof refreshOrderLineSelect==="function")refreshOrderLineSelect();}catch(e){}
+    try{if(typeof renderOrders==="function")renderOrders();}catch(e){}
+    try{if(typeof renderProduction==="function")renderProduction();}catch(e){}
+    try{if(typeof drawProductionChart==="function")drawProductionChart();}catch(e){}
+    try{if(typeof drawHome==="function")drawHome();}catch(e){}
+    try{if(typeof renderEod==="function")renderEod();}catch(e){}
+  }
+  const originalSaveUserData=window.saveUserData;
+  window.saveUserData=function(){try{if(typeof originalSaveUserData==="function")originalSaveUserData();}catch(e){}scheduleCloudSave();};
+  window.cloudSaveNow=pushCloud;window.cloudLoadNow=pullCloud;
+
+  window.login=async function(){
+    const u=(document.getElementById("loginUser")?.value||"").trim();
+    const p=document.getElementById("loginPass")?.value||"";
+    const msg=document.getElementById("loginMsg");
+    if(!u||!p){if(msg)msg.textContent="Enter User ID and Password.";return;}
+    cloudReady=false;activeUsername=u;activePassword=p;setStatus("CHECKING LOGIN...");
+    try{
+      const check=await api("login");
+      currentUser=check.username||u;window.currentUser=currentUser;
+      try{localStorage.setItem("lineBalancingCurrentUser",currentUser);}catch(e){}
+      // The role returned by Supabase is authoritative. Do not let stale
+      // browser-only role metadata silently override it on this device.
       try{
-        if(typeof lbRoleMeta==='object'&&lbRoleMeta){lbRoleMeta[email.toLowerCase()]={role:cloudRole,line:null};if(typeof saveLbRoleMeta==='function')saveLbRoleMeta();}
-        lbCurrentRole=cloudRole;
-        localStorage.setItem('lineBalancingCurrentUser',currentUser);
-      }catch(e){lbCurrentRole=cloudRole;}
-      document.getElementById('loginScreen').style.display='none';
-      document.getElementById('currentUser').textContent='Logged in: '+email;
-      // Load local cache first for immediate UI, then replace it with cloud data.
-      syncing=true;try{if(typeof loadUserData==='function')loadUserData();}catch(e){}finally{syncing=false;}
-      const ua=document.getElementById('userAdmin');if(ua)ua.style.display='none';
-      await pullCloud();
-      try{if(typeof showScreen==='function')showScreen('home');}catch(e){}
-      message('');
-    }catch(e){authUser=null;status('LOGIN FAILED');message('Supabase login failed: '+(e.message||'Check email and password.'));}
+        if(typeof initLbRoles==="function")initLbRoles();
+        const serverRole=String(check.role||"supervisor").trim().toLowerCase();
+        const serverLines=Array.isArray(check.assigned_lines)?check.assigned_lines.map(Number).filter(n=>Number.isInteger(n)&&n>0):[];
+        const serverAccessMode=String(check.access_mode||(serverRole==="admin"?"full":"selected"));
+        const validRoles=["admin","production_manager","ie","ie_executive","management","supervisor","mechanic","mechanic_manager","planning","viewer"];
+        if(!validRoles.includes(serverRole))throw new Error("Invalid role returned by cloud login");
+        USERS=readUsers();
+        const userKey=Object.keys(USERS).find(k=>k.toLowerCase()===String(currentUser).toLowerCase())||currentUser;
+        const oldUser=USERS[userKey];
+        USERS[userKey]={...(oldUser&&typeof oldUser==="object"?oldUser:{}),password:"",role:serverRole};
+        saveUsers();
+        const roleKey=String(currentUser).toLowerCase();
+        const oldMeta=(typeof lbRoleMeta!=="undefined"&&lbRoleMeta[roleKey])?lbRoleMeta[roleKey]:{};
+        if(typeof lbRoleMeta!=="undefined"){
+          lbRoleMeta[roleKey]={...oldMeta,role:serverRole,lines:serverLines,line:serverLines.length===1?serverLines[0]:null,accessMode:serverRole==="admin"?"full":serverAccessMode};
+          if(typeof saveLbRoleMeta==="function")saveLbRoleMeta();
+        }
+        lbCurrentRole=serverRole;
+      }catch(roleError){
+        console.error("Cloud role routing:",roleError);
+        if(msg)msg.textContent="Login role could not be loaded from Supabase. Check that the updated Edge Function and role column are deployed.";
+        throw roleError;
+      }
+      const screen=document.getElementById("loginScreen");if(screen)screen.style.display="none";
+      const cu=document.getElementById("currentUser");if(cu)cu.textContent="Logged in: "+currentUser;
+      try{if(typeof loadUserData==="function")loadUserData();}catch(e){}
+      try{if(typeof initAllocationDate==="function")initAllocationDate();}catch(e){}
+      const ua=document.getElementById("userAdmin");if(ua)ua.style.display=(currentUser.toLowerCase()==="admin"?"block":"none");
+      try{if(typeof applyLbRoleUI==="function")applyLbRoleUI();else if(typeof showScreen==="function")showScreen("home");}catch(e){}
+      const result=await pullCloud();
+      if(result.error){cloudReady=false;if(msg)msg.textContent="Login OK, but cloud data could not load. Check Edge Function secrets/table setup; no data was overwritten.";return;}
+      if(!result.found){cloudReady=true;await pushCloud();}
+      else cloudReady=true;
+      startCloudPolling();
+      if(msg)msg.textContent="";
+    }catch(e){activeUsername="";activePassword="";cloudReady=false;setStatus("LOGIN FAILED - "+e.message);if(msg)msg.textContent="Login failed: "+e.message;}
   };
-  window.logout=async function(){
-    try{if(authUser)await pushCloud();}catch(e){}
-    try{await client?.auth.signOut();}catch(e){}
-    authUser=null;currentUser='';
-    const ls=document.getElementById('loginScreen');if(ls)ls.style.display='flex';
-    document.querySelectorAll('.app-screen').forEach(x=>x.classList.remove('active'));
-    document.getElementById('homeScreen')?.classList.add('active');status('SIGNED OUT');
+  // Change a user's role in the cloud using the currently authenticated admin.
+  window.updateCloudUserRole=async function(targetUsername, role, assignedLines=[], accessMode="selected"){
+    if(!cloudReady||!activeUsername||!activePassword)throw new Error("Cloud admin session is not ready. Please log in again.");
+    const result=await api("set_role",{
+      target_username:String(targetUsername||"").trim(),
+      role:String(role||"").trim().toLowerCase(),
+      assigned_lines:Array.isArray(assignedLines)?assignedLines:[],
+      access_mode:String(accessMode||"selected")
+    });
+    return result;
   };
-  window.resetPassword=async function(){
-    const email=(document.getElementById('resetUser')?.value||document.getElementById('loginUser')?.value||'').trim();
-    if(!email){message('Enter the email address of your Supabase account.');return;}
-    try{const {error}=await client.auth.resetPasswordForEmail(email);if(error)throw error;message('Password reset email requested. Check your inbox.');}
-    catch(e){message('Password reset failed: '+(e.message||'try again'));}
+  const originalLogout=window.logout;
+  window.logout=async function(){if(cloudReady){clearTimeout(saveTimer);await pushCloud();}if(cloudPollHandle){clearInterval(cloudPollHandle);cloudPollHandle=null;}cloudReady=false;activeUsername="";activePassword="";if(typeof originalLogout==="function")originalLogout();setStatus("CLOUD READY - LOGIN REQUIRED");};
+
+  // Cloud user creation uses the server-side admin secret entered by the administrator.
+  // Login-page Create User: preserve the selected role locally so role routing
+  // does not silently fall back to Supervisor after a successful cloud signup.
+  window.createUserFromScreen=async function(){
+    const admin=(document.getElementById("createAdminId")?.value||"").trim();
+    const adminPass=(document.getElementById("createAdminPass")?.value||"");
+    const u=(document.getElementById("createNewUser")?.value||"").trim();
+    const p=(document.getElementById("createNewPass")?.value||"");
+    const cp=(document.getElementById("createConfirmPass")?.value||"");
+    const role=(document.getElementById("createRole")?.value||"supervisor").trim().toLowerCase();
+    const m=document.getElementById("createUserMsg");
+    if(admin.toLowerCase()!=="admin"||!adminPass){if(m)m.textContent="Enter the cloud Admin ID and password.";return;}
+    if(!/^[A-Za-z0-9_.-]{3,40}$/.test(u)){if(m)m.textContent="User ID must be 3–40 letters/numbers or . _ -";return;}
+    if(p.length<8||p.length>200){if(m)m.textContent="New password must be at least 8 characters.";return;}
+    if(p!==cp){if(m)m.textContent="Passwords do not match.";return;}
+    if(!["supervisor","viewer","admin"].includes(role)){if(m)m.textContent="Choose a valid user role.";return;}
+    const secret=prompt("Enter LINEBALANCE_ADMIN_SECRET configured in Supabase Edge Function secrets:");
+    if(!secret){if(m)m.textContent="User creation cancelled.";return;}
+    try{
+      const response=await fetch(CLOUD_CONFIG.FUNCTION_URL,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","apikey":CLOUD_CONFIG.SUPABASE_ANON_KEY},
+        body:JSON.stringify({action:"create_user",username:u,password:p,admin_secret:secret,role})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data.error)throw new Error(data.error||"Create user failed");
+
+      // Keep role metadata in this browser; the current Edge Function's login
+      // response does not provide a role, so without this the app defaults to supervisor.
+      USERS=readUsers();
+      const existingKey=Object.keys(USERS).find(k=>k.toLowerCase()===u.toLowerCase());
+      const key=existingKey||u;
+      USERS[key]={password:"",role};
+      try{localStorage.setItem("lineBalancingUsers",JSON.stringify(USERS));}catch(_){}
+      if(typeof lbRoleMeta!=="undefined"){
+        lbRoleMeta[key.toLowerCase()]={role,line:null,lines:[],accessMode:role==="admin"?"full":"selected"};
+        if(typeof saveLbRoleMeta==="function")saveLbRoleMeta();
+      }
+      if(m)m.textContent="User created in cloud with role "+role+": "+key+". Role routing is saved in this browser.";
+      ["createNewUser","createNewPass","createConfirmPass","createAdminPass"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+      if(typeof renderUsers==="function")renderUsers();
+      if(typeof renderRoleUsers==="function")renderRoleUsers();
+    }catch(e){if(m)m.textContent="Create user failed: "+e.message;}
   };
-  document.addEventListener('DOMContentLoaded',function(){
-    const input=document.getElementById('loginUser');if(input)input.placeholder='Email address (Supabase account)';
-    const note=document.getElementById('cloudSetupNote');if(note)note.innerHTML='<b>☁️ Shared Database:</b> Supabase authentication and cloud sync enabled. Sign in using the email and password of your Supabase Auth user. Use the same account on each device.';
-    const el=document.createElement('div');el.id='cloudStatus';el.style.cssText='position:fixed;bottom:10px;right:10px;z-index:99999;padding:7px 10px;border-radius:999px;background:#eef2f6;color:#334155;font:700 11px Arial;box-shadow:0 2px 8px #0002';el.textContent=window.LINE_BALANCE_CLOUD.status;document.body.appendChild(el);
-    client?.auth.getSession().then(({data})=>{if(data?.session)status('SESSION FOUND - PLEASE LOG IN AGAIN');});
+
+  // Admin-panel Create User must create the account in the SAME cloud auth table
+  // used by window.login, rather than storing a local-only password.
+  window.createUser=async function(){
+    const u=(document.getElementById("newUserId")?.value||"").trim();
+    const p=document.getElementById("newUserPass")?.value||"";
+    if(String(currentUser||"").trim().toLowerCase()!=="admin"){alert("Admin cloud login required.");return;}
+    if(!/^[A-Za-z0-9_.-]{3,40}$/.test(u)){alert("User ID must be 3–40 letters/numbers or . _ -");return;}
+    if(p.length<8||p.length>200){alert("Password must be at least 8 characters.");return;}
+    const secret=prompt("Enter LINEBALANCE_ADMIN_SECRET configured in Supabase Edge Function secrets:");
+    if(!secret)return;
+    try{
+      const response=await fetch(CLOUD_CONFIG.FUNCTION_URL,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","apikey":CLOUD_CONFIG.SUPABASE_ANON_KEY},
+        body:JSON.stringify({action:"create_user",username:u,password:p,admin_secret:secret})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data.error)throw new Error(data.error||("Create user failed (HTTP "+response.status+")"));
+      // Keep the username visible in the admin UI only; the password is not stored locally.
+      USERS=readUsers();
+      USERS[u]={password:"",role:"supervisor"};
+      saveUsers();
+      if(typeof lbRoleMeta!=="undefined"){lbRoleMeta[u.toLowerCase()]={role:"supervisor",line:null};if(typeof saveLbRoleMeta==="function")saveLbRoleMeta();}
+      const id=document.getElementById("newUserId"),pw=document.getElementById("newUserPass");
+      if(id)id.value="";if(pw)pw.value="";
+      if(typeof renderUsers==="function")renderUsers();
+      if(typeof renderRoleUsers==="function")renderRoleUsers();
+      alert("Cloud user created successfully: "+u+"\nUse this username and the password you entered on the login page.");
+    }catch(e){alert("Cloud user creation failed: "+(e?.message||String(e)));}
+  };
+
+  // Delete the account from Supabase, not only this browser. The shared line data is intentionally preserved.
+  window.deleteUserAccount=async function(username){
+    const target=String(username||"").trim();
+    if(String(currentUser||activeUsername||"").toLowerCase()!=="admin")return alert("Cloud Admin login required.");
+    if(!target)return;
+    if(target.toLowerCase()==="admin")return alert("The admin account cannot be deleted.");
+    if(target.toLowerCase()===String(currentUser||activeUsername||"").toLowerCase())return alert("You cannot delete the account currently logged in.");
+    if(!confirm("Delete user "+target+" from Supabase?\n\nThis prevents future logins for this user. Shared line data will be kept."))return;
+    try{
+      const result=await api("delete_user",{target_username:target});
+      USERS=readUsers();
+      const key=Object.keys(USERS).find(k=>k.toLowerCase()===target.toLowerCase());
+      if(key)delete USERS[key];
+      try{localStorage.setItem("lineBalancingUsers",JSON.stringify(USERS));}catch(_){}
+      try{if(typeof lbRoleMeta!=="undefined"){delete lbRoleMeta[target.toLowerCase()];if(typeof saveLbRoleMeta==="function")saveLbRoleMeta();}}catch(_){}
+      try{if(typeof renderUsers==="function")renderUsers();if(typeof renderRoleUsers==="function")renderRoleUsers();}catch(_){}
+      alert("User deleted from Supabase. That User ID can no longer log in. Shared line data was preserved.");
+    }catch(e){alert("Cloud user deletion failed: "+(e?.message||String(e))+". Deploy the updated Edge Function first.");}
+  };
+
+  // Local password reset is disabled because cloud credentials must be changed server-side.
+  window.resetPassword=function(){const msg=document.getElementById("loginMsg");if(msg)msg.textContent="Cloud password reset must be configured on the server; local-only reset is disabled to protect account access.";};
+
+  document.addEventListener("DOMContentLoaded",function(){
+    const el=document.createElement("div");el.id="cloudStatus";el.style.cssText="position:fixed;bottom:10px;right:10px;z-index:99999;padding:7px 10px;border-radius:999px;background:#eef2f6;color:#334155;font:700 11px Arial;box-shadow:0 2px 8px #0002";el.textContent=window.LINE_BALANCE_CLOUD.status;document.body.appendChild(el);
+    setInterval(()=>{el.textContent=window.LINE_BALANCE_CLOUD.status;},700);
   });
+})();
+</script>
+
+<script>
+/* FINAL FIX: Admin Control Center user creation must call the same Supabase
+   create_user action that the Login page validates against. */
+(function(){
+  const CLOUD_AUTH_URL = "https://garsuswjxdkqlnowbdcs.supabase.co/functions/v1/line-balancing-api";
+  const CLOUD_ANON_KEY = "sb_publishable_yvws9HDk5yPK-kgr7J6ikg_nHfxQVnO";
+  window.saveRoleUser = async function(){
+    const say = t => alert(t);
+    if (String(window.lbCurrentRole || lbCurrentRole || '').toLowerCase() !== 'admin') { say('Admin login required.'); return; }
+    const id = (document.getElementById('hubUserId')?.value || '').trim();
+    const pw = document.getElementById('hubUserPass')?.value || '';
+    const role = document.getElementById('hubUserRole')?.value || 'supervisor';
+    const mode = document.getElementById('hubAccessMode')?.value || 'selected';
+    const mobileRaw = document.getElementById('hubUserMobile')?.value || '';
+    const raw = (document.getElementById('hubUserLines')?.value || '').trim();
+    const lines = raw ? raw.split(',').map(x => Number(x.trim())).filter(n => Number.isInteger(n) && n > 0) : [];
+    if (!id) { say('Enter User ID.'); return; }
+    if (!/^[A-Za-z0-9_.-]{3,40}$/.test(id)) { say('User ID must be 3–40 letters/numbers or . _ -'); return; }
+    if (pw && (pw.length < 8 || pw.length > 200)) { say('Password must be at least 8 characters for cloud login.'); return; }
+    if (role === 'supervisor' && mode === 'selected' && !lines.length) { say('Enter the Supervisor assigned line.'); return; }
+    if (mode === 'selected' && !lines.length && !['planning'].includes(role)) { say('Enter one or more line numbers, or choose Full Access.'); return; }
+    if (String(currentUser || window.currentUser || '').toLowerCase() !== 'admin') { say('Please login as the cloud admin first.'); return; }
+
+    // If a password is entered, attempt cloud account creation. If the account
+    // already exists, allow this form to repair the local role/access assignment.
+    // If password is left blank, this is role-only repair for an existing account;
+    // it does not create a cloud user or change anyone's password.
+    let cloudCreated = false;
+    let accountAlreadyExists = false;
+    if (pw) {
+      const secret = prompt('Enter LINEBALANCE_ADMIN_SECRET configured in Supabase Edge Function secrets:');
+      if (!secret) return;
+      try {
+        const response = await fetch(CLOUD_AUTH_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': CLOUD_ANON_KEY },
+          body: JSON.stringify({ action: 'create_user', username: id, password: pw, admin_secret: secret, role, assigned_lines: lines, access_mode: mode })
+        });
+        let data = {};
+        try { data = await response.json(); } catch (_) {}
+        if (!response.ok || data.error) {
+          const err = String(data.error || ('Create user failed (HTTP ' + response.status + ')'));
+          if (/already exists|duplicate/i.test(err)) accountAlreadyExists = true;
+          else throw new Error(err);
+        } else cloudCreated = true;
+      } catch (e) {
+        say('Cloud user creation failed: ' + (e?.message || String(e)));
+        return;
+      }
+    }
+
+    // Persist role changes server-side too. For a newly-created account, the
+    // create_user request already wrote the role; existing/password-blank users
+    // must use the authenticated set_role action.
+    if (!pw || accountAlreadyExists) {
+      try {
+        if (typeof window.updateCloudUserRole !== 'function') throw new Error('Cloud role-update function is unavailable. Deploy the updated app.');
+        await window.updateCloudUserRole(id, role, lines, mode);
+      } catch (e) {
+        say('Could not save role in Supabase: ' + (e?.message || String(e)) + '\nNo local-only role change was applied.');
+        return;
+      }
+    }
+
+    // Store role/access metadata locally for line/mobile details; cloud role remains authoritative.
+    USERS = readUsers();
+    const existingKey = Object.keys(USERS).find(k => k.toLowerCase() === id.toLowerCase());
+    const key = existingKey || id;
+    USERS[key] = { password: '', role };
+    const usersSaved = saveUsers();
+    if (typeof lbRoleMeta !== 'undefined') {
+      lbRoleMeta[key.toLowerCase()] = { role, line: lines.length === 1 ? lines[0] : null, lines, accessMode: mode, mobile: (typeof normalizeMobile === 'function' ? normalizeMobile(mobileRaw) : mobileRaw) };
+      if (typeof saveLbRoleMeta === 'function') saveLbRoleMeta();
+    }
+    const mobile = typeof normalizeMobile === 'function' ? normalizeMobile(mobileRaw) : mobileRaw;
+    if (role === 'supervisor' && mobile && lines.length) {
+      lines.forEach(line => {
+        supervisorContacts = supervisorContacts.filter(x => String(x.line) !== String(line));
+        supervisorContacts.push({ line, name: key, mobile });
+      });
+    } else if (mobile) {
+      managementContacts = managementContacts.filter(x => String(x.userId || '').toLowerCase() !== key.toLowerCase());
+      managementContacts.push({ userId: key, name: key, designation: (typeof LB_ROLE_LABELS !== 'undefined' && LB_ROLE_LABELS[role]) || role, mobile, accessMode: mode, lines });
+    }
+    try { if (typeof saveUserData === 'function') saveUserData(); } catch (_) {}
+    if (typeof saveLbRoleMeta === 'function') saveLbRoleMeta();
+    if (typeof renderRoleUsers === 'function') renderRoleUsers();
+    if (typeof renderUsers === 'function') renderUsers();
+    if (typeof renderContacts === 'function') renderContacts();
+    if (typeof renderSendAllocation === 'function') renderSendAllocation();
+    ['hubUserId','hubUserPass','hubUserLines','hubUserMobile'].forEach(field => { const el = document.getElementById(field); if (el) el.value = ''; });
+
+    let resultMessage;
+    if (!pw) resultMessage = 'Role updated in Supabase for existing cloud account: ' + key + '. Line/mobile access details remain stored in this browser.';
+    else if (accountAlreadyExists) resultMessage = 'Cloud account already exists. Role updated in Supabase for: ' + key + '. Password was not changed.';
+    else resultMessage = 'Cloud account created in Supabase: ' + key + ' with role ' + role + '. Line/mobile access details remain stored in this browser.';
+    if (!usersSaved) resultMessage += ' Browser storage was blocked; role may not persist after closing this page.';
+    say(resultMessage);
+  };})();
+</script>
+
+
+<!-- LINE-SCOPED SUPERVISOR VIEW -->
+<script>
+(function(){
+  function role(){try{return String(window.lbCurrentRole||lbCurrentRole||'').toLowerCase()}catch(e){return ''}}
+  function meta(){try{return lbRoleMeta[String(currentUser||window.currentUser||'').toLowerCase()]||{}}catch(e){return {}}}
+  function allowed(){
+    const m=meta();
+    if(role()==='admin'||m.accessMode==='full')return null;
+    const a=Array.isArray(m.lines)?m.lines.map(String):(m.line?[String(m.line)]:[]);
+    return a.length?new Set(a):null;
+  }
+  function rowLine(row,id){
+    const t=(row.querySelector('td:first-child')?.textContent||'').trim();
+    if(id==='eodTable'||id==='productionTable'){const m=t.match(/Line\s+(\d+)/i);return m?m[1]:null}
+    if(/^\d+$/.test(t))return t;
+    const m=t.match(/^Line\s+(\d+)/i);return m?m[1]:null;
+  }
+  function apply(){
+    if(role()!=='supervisor')return;
+    const a=allowed();if(!a)return;
+    ['allocationLineFilter','allocationAddLine','extraManpowerLine','prodLine','eodLine','breakLine','orderLine','contactLine'].forEach(id=>{
+      const s=document.getElementById(id);if(!s)return;
+      Array.from(s.options).forEach(o=>{if(!o.value||!/^\d+$/.test(String(o.value)))return;o.hidden=!a.has(String(o.value));o.disabled=o.hidden});
+      if(s.value&&/^\d+$/.test(String(s.value))&&!a.has(String(s.value)))s.value='';
+    });
+    ['allocation','lineReport','homeLineTable','productionTable','eodTable'].forEach(id=>{
+      const el=document.getElementById(id);if(!el)return;
+      el.querySelectorAll('tbody tr').forEach(r=>{const n=rowLine(r,id);if(n!==null)r.style.display=a.has(String(n))?'':'none'});
+    });
+    ['balanceBoard','lineAccordion','eodDetails'].forEach(id=>{
+      const el=document.getElementById(id);if(!el)return;
+      Array.from(el.children).forEach(c=>{const t=(c.querySelector('h3,h4,.line-title,b')?.textContent||c.textContent||'');const m=t.match(/Line\s*#?\s*(\d+)/i);if(m)c.style.display=a.has(String(m[1]))?'':'none'});
+    });
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    const root=document.querySelector('.container')||document.body;
+    new MutationObserver(apply).observe(root,{childList:true,subtree:true});
+    setInterval(apply,1000);
+  });
+  const old=window.applyLbRoleUI;
+  if(typeof old==='function')window.applyLbRoleUI=function(){old();setTimeout(apply,0)};
+  window.applySupervisorLineScope=apply;
+})();
+</script>
+
+<script>
+/* Public landing page with login opened only from the top-corner/login CTA. */
+(function(){
+  window.openAppLogin=function(){
+    const ls=document.getElementById('loginScreen');
+    if(ls)ls.style.display='flex';
+    const msg=document.getElementById('loginMsg');if(msg)msg.textContent='';
+    setTimeout(()=>document.getElementById('loginUser')?.focus(),50);
+  };
+  const ls=document.getElementById('loginScreen');
+  if(ls){
+    ls.style.display='none';
+    new MutationObserver(()=>{
+      if(ls.style.display==='none' && String(window.currentUser||'').trim()){
+        document.body.classList.add('app-logged-in');
+        const landing=document.getElementById('publicLanding');if(landing)landing.style.display='none';
+      }
+    }).observe(ls,{attributes:true,attributeFilter:['style']});
+  }
+  const oldLogout=window.logout;
+  window.logout=function(){
+    try{if(typeof oldLogout==='function')oldLogout();}catch(e){}
+    document.body.classList.remove('app-logged-in');
+    const landing=document.getElementById('publicLanding');if(landing)landing.style.display='block';
+    const login=document.getElementById('loginScreen');if(login)login.style.display='none';
+    const header=document.querySelector('body>header');if(header){const cu=document.getElementById('currentUser');if(cu)cu.textContent='';}
+  };
+  document.body.classList.remove('app-logged-in');
 })();
 </script>
 
